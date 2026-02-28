@@ -43,7 +43,7 @@ export function HeroPage() {
     }, []);
 
     return (
-        <div className="fixed inset-0 w-screen min-h-screen bg-black" style={{ overflow: 'hidden' }}>
+        <div className="fixed inset-0 w-screen h-screen bg-black">
             {/* Cinematic success overlay — full takeover on submit */}
             <SuccessOverlay show={submitted} onClose={handleOverlayClose} />
 
