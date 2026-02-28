@@ -306,3 +306,10 @@ body {
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* Hero headline — mobile shadow boost (visual polish only) */
+@media (max-width: 640px) {
+  .hero-headline {
+    filter: drop-shadow(0 2px 24px rgba(0, 0, 0, 0.55)) drop-shadow(0 6px 48px rgba(0, 0, 0, 0.4)) !important;
+  }
+}

@@ -95,7 +95,25 @@ export function HeroPage() {
                                     <AnimatePresence>
                                         {mounted && (
                                             <div className="flex flex-col items-center text-center max-w-5xl relative" style={{ zIndex: 10 }}>
-                                                <h1 className="mb-6 pb-2 leading-[0.92] tracking-[-0.04em]">
+                                                {/* Barely-visible radial darkening behind headline for readability */}
+                                                <div
+                                                    className="absolute pointer-events-none"
+                                                    style={{
+                                                        top: '50%',
+                                                        left: '50%',
+                                                        transform: 'translate(-50%, -55%)',
+                                                        width: '120%',
+                                                        height: '80%',
+                                                        background: 'radial-gradient(ellipse 70% 50% at 50% 45%, rgba(0,0,0,0.25) 0%, transparent 70%)',
+                                                        zIndex: -1,
+                                                    }}
+                                                />
+                                                <h1
+                                                    className="hero-headline mb-6 pb-2 leading-[0.92] tracking-[-0.04em]"
+                                                    style={{
+                                                        filter: 'drop-shadow(0 2px 20px rgba(0,0,0,0.4)) drop-shadow(0 4px 40px rgba(0,0,0,0.3))',
+                                                    }}
+                                                >
                                                     <HeroWord word="Build" delay={0} />
                                                     <HeroWord word="worlds." delay={0.4} />
                                                     <br className="hidden sm:block" />
@@ -399,10 +417,12 @@ function HeroWord({ word, delay, isLast = false }: { word: string; delay: number
             initial={{ opacity: 0, y: 40, filter: 'blur(4px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             transition={{ duration: 1.2, delay, ease: [0.22, 1, 0.36, 1] }}
-            className={`inline-block text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-medium bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/50 ${isLast ? '' : 'mr-4 md:mr-6'}`}
+            className={`inline-block text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-medium ${isLast ? '' : 'mr-4 md:mr-6'}`}
             style={{
-                textShadow: '0 2px 30px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.5)',
-                WebkitTextStroke: '0.3px rgba(255,255,255,0.08)',
+                background: 'linear-gradient(to bottom, #FFFFFF, #DADADA)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
             }}
         >
             {word}

@@ -77,7 +77,8 @@ export function WaitlistForm({
                         initial={false}
                         exit={{ opacity: 0, scale: 0.95, filter: 'blur(6px)', transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } }}
                         className={cn(
-                            'relative group flex w-full bg-black/40 backdrop-blur-md border rounded-full transition-all duration-500',
+                            'relative group flex items-center w-full bg-black/40 backdrop-blur-md border rounded-full transition-all duration-500',
+                            isLarge ? 'pl-8 pr-2 py-2' : 'pl-6 pr-2 py-2',
                             isFocused
                                 ? 'border-[rgba(100,200,220,0.4)] shadow-[0_0_20px_rgba(13,59,79,0.3)]'
                                 : 'border-white/20 hover:border-white/30 hover:bg-black/50'
@@ -107,11 +108,10 @@ export function WaitlistForm({
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             className={cn(
-                                'relative z-[1] w-full bg-transparent text-white rounded-full',
+                                'relative z-[1] flex-1 min-w-0 bg-transparent text-white',
                                 'placeholder:text-neutral-400 focus:outline-none transition-all duration-500',
                                 'border-none',
-                                isLarge ? 'px-8 py-5 text-lg' : 'px-6 py-4 text-base',
-                                showTextButton ? 'pr-36' : ''
+                                isLarge ? 'py-3 text-lg' : 'py-2 text-base'
                             )}
                         />
 
@@ -119,7 +119,7 @@ export function WaitlistForm({
                             type="submit"
                             disabled={status === 'loading'}
                             className={cn(
-                                'absolute right-2 top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center z-[2]',
+                                'shrink-0 rounded-full flex items-center justify-center z-[2]',
                                 'transition-all duration-500 disabled:cursor-not-allowed',
                                 'active:scale-95 hover:scale-[1.05] hover:brightness-110',
                                 status === 'loading'
@@ -128,11 +128,11 @@ export function WaitlistForm({
                                         ? 'bg-white text-black hover:bg-[rgba(100,200,220,1)] hover:text-white hover:shadow-[0_0_24px_rgba(13,59,79,0.4)]'
                                         : 'bg-white text-black hover:bg-[rgba(100,200,220,1)] hover:text-white hover:shadow-[0_0_20px_rgba(13,59,79,0.4)]',
                                 showTextButton
-                                    ? 'px-6 h-12 text-sm font-medium tracking-wide'
+                                    ? 'px-6 py-3 text-sm font-medium tracking-wide'
                                     : isLarge ? 'w-12 h-12' : 'w-10 h-10'
                             )}
                             style={{
-                                animation: status !== 'loading' ? 'cta-glow-pulse 4s ease-in-out infinite, pulse-scale 2.5s ease-in-out infinite' : 'none',
+                                animation: status !== 'loading' ? 'cta-glow-pulse 4s ease-in-out infinite' : 'none',
                             }}
                         >
                             {status === 'loading' ? (
