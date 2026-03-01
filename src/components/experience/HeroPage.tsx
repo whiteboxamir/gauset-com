@@ -44,6 +44,35 @@ export function HeroPage() {
 
     return (
         <div className="fixed inset-0 w-screen h-screen bg-black">
+            {/* ── Cinematic background — OUTSIDE scroll tree to prevent video state from breaking scroll ── */}
+            <HeroBackground />
+
+            {/* ── Director UI overlay — OUTSIDE scroll tree ── */}
+            <DirectorOverlay />
+
+            {/* ── Bottom-edge fade for hero section — OUTSIDE scroll tree ── */}
+            <div
+                className="absolute inset-x-0 bottom-0 pointer-events-none"
+                style={{
+                    height: '18%',
+                    background: 'linear-gradient(to bottom, transparent 0%, #050510 100%)',
+                    zIndex: 50,
+                }}
+            />
+            {/* Extra hard-edge killer */}
+            <div className="absolute bottom-0 left-0 w-full h-32 pointer-events-none bg-gradient-to-b from-transparent to-black/60" style={{ zIndex: 51 }} />
+
+            {/* Bottom seam killer — extra gradient fade */}
+            <div style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "120px",
+                pointerEvents: "none",
+                background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.6))",
+                zIndex: 52,
+            }} />
             {/* Cinematic success overlay — full takeover on submit */}
             <SuccessOverlay show={submitted} onClose={handleOverlayClose} />
 
@@ -73,20 +102,6 @@ export function HeroPage() {
 
                                 {/* ═══ PHASE 1: HOOK — Pure cinematic statement ═══ */}
                                 <div className="h-screen flex flex-col items-center justify-center px-6 text-center relative" style={{ marginBottom: '-2px', paddingBottom: '2px', minHeight: '100svh' }}>
-                                    {/* Cinematic background — crossfading environment images */}
-                                    <HeroBackground />
-
-                                    {/* Bottom-edge fade — seamless transition into next section */}
-                                    <div
-                                        className="absolute inset-x-0 bottom-0 pointer-events-none"
-                                        style={{
-                                            height: '18%',
-                                            background: 'linear-gradient(to bottom, transparent 0%, #050510 100%)',
-                                            zIndex: 50,
-                                        }}
-                                    />
-                                    {/* Extra hard-edge killer */}
-                                    <div className="absolute bottom-0 left-0 w-full h-32 pointer-events-none bg-gradient-to-b from-transparent to-black/60" style={{ zIndex: 51 }} />
 
                                     <nav className="fixed top-0 left-0 right-0 flex justify-between items-center px-6 md:px-10 py-5 pointer-events-auto z-50">
                                         <div className="text-white/90 font-bold tracking-[0.15em] text-xs uppercase">Gauset</div>
@@ -166,19 +181,6 @@ export function HeroPage() {
                                         )}
                                     </AnimatePresence>
 
-                                    {/* Director UI overlay — film-monitor controls */}
-                                    <DirectorOverlay />
-
-                                    {/* Bottom seam killer — extra gradient fade */}
-                                    <div style={{
-                                        position: "absolute",
-                                        bottom: 0,
-                                        left: 0,
-                                        width: "100%",
-                                        height: "120px",
-                                        pointerEvents: "none",
-                                        background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.6))"
-                                    }} />
                                 </div>
 
 
