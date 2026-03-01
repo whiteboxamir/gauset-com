@@ -45,7 +45,7 @@ export function HeroPage() {
     }, []);
 
     return (
-        <div className="fixed inset-0 w-screen h-screen bg-black">
+        <div className="fixed inset-0 w-screen bg-black" style={{ height: '100svh' }}>
             {/* Cinematic success overlay — full takeover on submit */}
             <SuccessOverlay show={submitted} onClose={handleOverlayClose} />
 
@@ -61,7 +61,7 @@ export function HeroPage() {
                     toneMappingExposure: 0.85,
                 }}
                 dpr={[1, 1.5]}
-                style={{ background: '#000000' }}
+                style={{ background: '#000000', touchAction: 'pan-y' }}
             >
                 <color attach="background" args={['#050510']} />
                 <fog attach="fog" args={['#050510', 30, 120]} />

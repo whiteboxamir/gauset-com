@@ -51,6 +51,7 @@ export function HeroBackground() {
                     transform: `translate(${parallax.x}px, ${parallax.y}px)`,
                     animation: 'hero-drift 20s ease-in-out infinite',
                     willChange: 'opacity, transform',
+                    pointerEvents: 'none',
                 }}
             />
 

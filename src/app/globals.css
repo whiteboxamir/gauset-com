@@ -18,6 +18,26 @@ body {
   overflow-y: auto;
 }
 
+/* Mobile scroll fix — touch devices only */
+@media (pointer: coarse) {
+
+  html,
+  body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: auto;
+  }
+
+  body {
+    position: relative;
+  }
+
+  /* Ensure the drei ScrollControls container receives touch events */
+  canvas {
+    touch-action: pan-y !important;
+  }
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
