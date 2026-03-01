@@ -1,6 +1,12 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans';
 import './globals.css'
+
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
     title: 'GAUSET | Build worlds. Not clips.',

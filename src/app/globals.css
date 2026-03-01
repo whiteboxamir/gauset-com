@@ -15,9 +15,25 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: auto;
+  height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* Hero container — flush to top, safe-area aware */
+.hero-container {
+  margin-top: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: 100svh;
+  min-height: -webkit-fill-available;
+}
+
+/* Mobile hero fix — eliminate top gap on real devices */
+@supports (min-height: 100svh) {
+  .hero-container {
+    min-height: 100svh;
+    height: auto;
+  }
 }
 
 /* Mobile scroll fix — touch devices only */

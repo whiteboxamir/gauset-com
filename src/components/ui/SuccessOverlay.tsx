@@ -9,14 +9,15 @@ interface SuccessOverlayProps {
 }
 
 export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
-    const [showBack, setShowBack] = useState(false);
+    const [buttonVisible, setButtonVisible] = useState(false);
 
     useEffect(() => {
         if (!show) {
-            setShowBack(false);
+            setButtonVisible(false);
             return;
         }
-        const timer = setTimeout(() => setShowBack(true), 3000);
+        // Small delay so button animates in after text
+        const timer = setTimeout(() => setButtonVisible(true), 100);
         return () => clearTimeout(timer);
     }, [show]);
 
@@ -42,9 +43,16 @@ export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
                         background: 'radial-gradient(ellipse 70% 60% at 50% 50%, #0a081e 0%, #000000 100%)',
                     }}
                 >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '0 24px' }}>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        padding: '0 24px',
+                        minHeight: '220px',
+                    }}>
 
-                        {/* "You're in." */}
+                        {/* "You're on the list." */}
                         <motion.h2
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -63,7 +71,7 @@ export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
                             You&apos;re on the list.
                         </motion.h2>
 
-                        {/* "Early access granted." */}
+                        {/* "We'll be in touch." */}
                         <motion.p
                             initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -78,42 +86,41 @@ export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
                             We&apos;ll be in touch.
                         </motion.p>
 
-                        {/* Back button — appears after 3s */}
-                        <AnimatePresence>
-                            {showBack && onClose && (
-                                <motion.button
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 1, ease: 'easeOut' }}
-                                    onClick={onClose}
-                                    style={{
-                                        marginTop: '48px',
-                                        padding: '10px 24px',
-                                        borderRadius: '9999px',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        background: 'rgba(255,255,255,0.03)',
-                                        color: 'rgba(255,255,255,0.35)',
-                                        fontSize: '11px',
-                                        letterSpacing: '0.15em',
-                                        textTransform: 'uppercase' as const,
-                                        fontWeight: 500,
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s ease',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = 'rgba(140,120,255,0.3)';
-                                        e.currentTarget.style.color = 'rgba(180,165,255,0.7)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                                        e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
-                                    }}
-                                >
-                                    ← Back to home
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
+                        {/* Back button — always in DOM, animated via CSS */}
+                        {onClose && (
+                            <button
+                                onClick={buttonVisible ? onClose : undefined}
+                                style={{
+                                    marginTop: '48px',
+                                    padding: '10px 24px',
+                                    borderRadius: '9999px',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    color: 'rgba(255,255,255,0.35)',
+                                    fontSize: '11px',
+                                    letterSpacing: '0.15em',
+                                    textTransform: 'uppercase' as const,
+                                    fontWeight: 500,
+                                    cursor: buttonVisible ? 'pointer' : 'default',
+                                    opacity: buttonVisible ? 1 : 0,
+                                    transform: buttonVisible ? 'translateY(0)' : 'translateY(10px)',
+                                    pointerEvents: buttonVisible ? 'auto' : 'none',
+                                    transition: 'opacity 0.5s ease-out, transform 0.5s ease-out, border-color 0.3s ease, color 0.3s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!buttonVisible) return;
+                                    e.currentTarget.style.borderColor = 'rgba(140,120,255,0.3)';
+                                    e.currentTarget.style.color = 'rgba(180,165,255,0.7)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!buttonVisible) return;
+                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                    e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+                                }}
+                            >
+                                ← Back to home
+                            </button>
+                        )}
                     </div>
                 </motion.div>
             )}

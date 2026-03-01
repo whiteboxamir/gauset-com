@@ -45,7 +45,7 @@ export function HeroPage() {
     }, []);
 
     return (
-        <div className="fixed inset-0 w-screen bg-black" style={{ height: '100svh' }}>
+        <div className="fixed inset-0 w-screen h-screen bg-black" style={{ minHeight: '100svh' }}>
             {/* Cinematic success overlay — full takeover on submit */}
             <SuccessOverlay show={submitted} onClose={handleOverlayClose} />
 
@@ -74,7 +74,7 @@ export function HeroPage() {
                             <div className="w-screen pointer-events-none" style={{ overflowX: 'hidden' }}>
 
                                 {/* ═══ PHASE 1: HOOK — Pure cinematic statement ═══ */}
-                                <div className="flex flex-col items-center justify-center px-6 text-center relative" style={{ marginTop: 0, marginBottom: '-2px', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '2px', minHeight: '100svh' }}>
+                                <div className="hero-container flex flex-col items-center justify-center px-6 text-center relative" style={{ marginBottom: '-2px', paddingBottom: '2px' }}>
                                     {/* Cinematic background — crossfading environment videos */}
                                     <HeroBackground />
 
