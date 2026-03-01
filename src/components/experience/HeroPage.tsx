@@ -74,7 +74,7 @@ export function HeroPage() {
                             <div className="w-screen pointer-events-none" style={{ overflowX: 'hidden' }}>
 
                                 {/* ═══ PHASE 1: HOOK — Pure cinematic statement ═══ */}
-                                <div className="h-screen flex flex-col items-center justify-center px-6 text-center relative" style={{ marginBottom: '-2px', paddingBottom: '2px', minHeight: '100svh' }}>
+                                <div className="flex flex-col items-center justify-center px-6 text-center relative" style={{ marginTop: 0, marginBottom: '-2px', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '2px', minHeight: '100svh' }}>
                                     {/* Cinematic background — crossfading environment videos */}
                                     <HeroBackground />
 
