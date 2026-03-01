@@ -55,6 +55,7 @@ export function FinalProofSection() {
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
+                    objectPosition: 'center 70%',
                     display: 'block',
                 }}
             />
@@ -98,7 +99,7 @@ export function FinalProofSection() {
                 }}
             />
 
-            {/* Text content — centered over the video */}
+            {/* Text content — positioned at top, above video content */}
             <div
                 style={{
                     position: 'relative',
@@ -106,9 +107,9 @@ export function FinalProofSection() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: 'flex-start',
                     height: '100%',
-                    padding: '0 24px',
+                    padding: '6vh 24px 0',
                     pointerEvents: 'none',
                 }}
             >
