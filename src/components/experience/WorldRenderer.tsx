@@ -65,6 +65,7 @@ const _tempVec3 = new THREE.Vector3();
 const _tempLook = new THREE.Vector3();
 const _smoothPos = new THREE.Vector3(0, 0, 22);
 const _smoothLook = new THREE.Vector3(0, 0, -5);
+const _finalLook = new THREE.Vector3();
 const _fogColor = new THREE.Color('#050510');
 
 export function WorldRenderer() {
@@ -145,8 +146,28 @@ export function WorldRenderer() {
         _smoothPos.lerp(targetPos.current, dampFactor);
         _smoothLook.lerp(targetLook.current, dampFactor);
 
+        // --- Heavy Steadicam Breathing Effect ---
+        // Tweaking variables for the organic camera drift
+        const breathSpeed = 0.4;
+        const breathAmplitudePos = 0.02;  // Positional drift
+        const breathAmplitudeLook = 0.01; // Rotational drift
+
+        const time = state.clock.elapsedTime;
+        const breathOffsetX = Math.sin(time * breathSpeed) * breathAmplitudePos;
+        const breathOffsetY = Math.cos(time * breathSpeed * 0.8) * breathAmplitudePos;
+
+        const lookOffsetX = Math.sin(time * breathSpeed * 1.2) * breathAmplitudeLook;
+        const lookOffsetY = Math.cos(time * breathSpeed * 0.9) * breathAmplitudeLook;
+
         state.camera.position.copy(_smoothPos);
-        state.camera.lookAt(_smoothLook);
+        state.camera.position.x += breathOffsetX;
+        state.camera.position.y += breathOffsetY;
+
+        _finalLook.copy(_smoothLook);
+        _finalLook.x += lookOffsetX;
+        _finalLook.y += lookOffsetY;
+
+        state.camera.lookAt(_finalLook);
 
         // Interpolate fog/background color per world
         if (worldIndex < WORLD_COUNT - 1) {
