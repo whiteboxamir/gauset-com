@@ -13,6 +13,7 @@ import { HeroBackground } from './HeroBackground';
 import { DirectorOverlay } from './DirectorOverlay';
 import { PipelineSection } from './PipelineSection';
 import { FinalProofSection } from './FinalProofSection';
+import { GlitchText } from '@/components/ui/GlitchText';
 
 function CameraController() {
     const { camera, size } = useThree();
@@ -119,38 +120,59 @@ export function HeroPage() {
 
                         {/* Dynamic Shot Indicators */}
                         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mt-16 w-full max-w-4xl mx-auto">
-                            {['WIDE', 'CLOSE', 'OTS', 'TRACK'].map((shot, i) => (
-                                <motion.div
-                                    key={shot}
-                                    initial={{ opacity: 0, y: 40, rotateX: 45 }}
-                                    whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-                                    transition={{
-                                        duration: 0.8,
-                                        delay: i * 0.15,
-                                        type: 'spring',
-                                        bounce: 0.5
-                                    }}
-                                    viewport={{ margin: "-50px" }}
-                                    whileHover={{ scale: 1.15, zIndex: 20 }}
-                                    className="relative group cursor-pointer"
-                                    style={{ perspective: 1000 }}
-                                >
-                                    {/* Vibrant glow */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500 to-cyan-500 rounded-2xl blur-[16px] opacity-20 group-hover:opacity-100 transition-opacity duration-500" />
+                            {['WIDE', 'CLOSE', 'OTS', 'TRACK'].map((shot, i) => {
+                                // We need a wrapper component for hooks, but doing inline Framer Motion events is easier here
+                                return (
+                                    <motion.div
+                                        key={shot}
+                                        initial={{ opacity: 0, y: 40, rotateX: 45 }}
+                                        whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+                                        transition={{
+                                            duration: 0.8,
+                                            delay: i * 0.15,
+                                            type: 'spring',
+                                            bounce: 0.5
+                                        }}
+                                        viewport={{ margin: "-50px" }}
+                                        whileHover={{ scale: 1.15, zIndex: 20 }}
+                                        onMouseMove={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const y = e.clientY - rect.top;
+                                            const centerX = rect.width / 2;
+                                            const centerY = rect.height / 2;
+                                            const rotateX = ((y - centerY) / centerY) * -15; // Max 15deg tilt
+                                            const rotateY = ((x - centerX) / centerX) * 15;
+                                            e.currentTarget.style.transform = `scale(1.15) perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = `scale(1) perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+                                            // Let Framer Motion take back control
+                                            e.currentTarget.style.transition = 'transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transition = 'none'; // Snappy follow when hovered
+                                        }}
+                                        className="relative group cursor-pointer"
+                                        style={{ perspective: 1000 }}
+                                    >
+                                        {/* Vibrant glow */}
+                                        <div className="absolute inset-0 bg-gradient-to-br from-pink-500 to-cyan-500 rounded-2xl blur-[16px] opacity-20 group-hover:opacity-100 transition-opacity duration-500" />
 
-                                    {/* Glass block */}
-                                    <div className="relative px-8 py-5 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl flex flex-col items-center justify-center gap-2 overflow-hidden shadow-2xl transition-all duration-300 group-hover:border-white/30 group-hover:bg-black/80">
-                                        {/* Targeting reticle decor */}
-                                        <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
-                                        <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
-                                        <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
-                                        <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
+                                        {/* Glass block */}
+                                        <div className="relative px-8 py-5 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl flex flex-col items-center justify-center gap-2 overflow-hidden shadow-2xl transition-all duration-300 group-hover:border-white/30 group-hover:bg-black/80">
+                                            {/* Targeting reticle decor */}
+                                            <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
+                                            <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
+                                            <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
+                                            <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
 
-                                        <span className="text-[10px] text-neutral-500 tracking-[0.4em] font-medium group-hover:text-white/80 transition-colors">CAM_0{i + 1}</span>
-                                        <span className="text-xl font-black tracking-widest text-white/90 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-pink-500 transition-all">{shot}</span>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                            <span className="text-[10px] text-neutral-500 tracking-[0.4em] font-medium group-hover:text-white/80 transition-colors">CAM_0{i + 1}</span>
+                                            <span className="text-xl font-black tracking-widest text-white/90 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-pink-500 transition-all">{shot}</span>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
                         </div>
                     </motion.div>
                 </div>
@@ -161,9 +183,9 @@ export function HeroPage() {
             <div className="h-[100dvh] flex items-center justify-center relative pointer-events-none">
                 <div className="max-w-4xl px-6 text-center space-y-8 z-10 w-full">
                     <motion.p
-                        initial={{ opacity: 0, filter: 'blur(40px)', letterSpacing: '0.4em', scale: 0.9 }}
-                        whileInView={{ opacity: 1, filter: 'blur(0px)', letterSpacing: '-0.04em', scale: 1 }}
-                        transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
+                        initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
+                        whileInView={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                         viewport={{ once: false, amount: 0.6 }}
                         className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-white leading-tight mx-auto pointer-events-auto"
                         style={{
@@ -173,7 +195,7 @@ export function HeroPage() {
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
                         }}>
-                        The world doesn&apos;t reset anymore.
+                        <GlitchText text="The world doesn't reset anymore." speed={40} duration={1200} scrambleOffset={4} delay={0.2} />
                     </motion.p>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}

@@ -77,25 +77,27 @@ export function WaitlistForm({
                         initial={false}
                         exit={{ opacity: 0, scale: 0.95, filter: 'blur(6px)', transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } }}
                         className={cn(
-                            'relative group flex items-center w-full bg-black/40 backdrop-blur-md border rounded-full transition-all duration-500',
+                            'relative group flex items-center w-full bg-black/40 backdrop-blur-md border rounded-full transition-all duration-500 z-10',
                             isLarge ? 'pl-8 pr-2 py-2' : 'pl-6 pr-2 py-2',
                             isFocused
-                                ? 'border-[rgba(100,200,220,0.4)] shadow-[0_0_20px_rgba(13,59,79,0.3)]'
+                                ? 'border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.4)]'
                                 : 'border-white/20 hover:border-white/30 hover:bg-black/50'
                         )}
                     >
                         {/* Animated glow ring behind input */}
                         <div
                             className={cn(
-                                'absolute -inset-[1px] rounded-full transition-all duration-700 pointer-events-none',
+                                'absolute -inset-[2px] rounded-full transition-all duration-700 pointer-events-none -z-10',
                                 isFocused
-                                    ? 'opacity-100 blur-sm'
-                                    : 'opacity-0'
+                                    ? 'opacity-100 blur-md scale-[1.02]'
+                                    : 'opacity-0 scale-100'
                             )}
                             style={{
                                 background: isFocused
-                                    ? 'linear-gradient(90deg, rgba(13,59,79,0.3), rgba(100,200,220,0.15), rgba(13,59,79,0.3))'
+                                    ? 'linear-gradient(90deg, #ec4899, #06b6d4, #8b5cf6, #ec4899)'
                                     : 'none',
+                                backgroundSize: '200% 200%',
+                                animation: isFocused ? 'gradient-xy 3s linear infinite' : 'none',
                             }}
                         />
 

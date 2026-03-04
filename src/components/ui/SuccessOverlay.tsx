@@ -11,6 +11,18 @@ interface SuccessOverlayProps {
 export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
     const [buttonVisible, setButtonVisible] = useState(false);
 
+    // Generate random particles once when the component mounts
+    const [particles] = useState(() =>
+        Array.from({ length: 40 }).map((_, i) => ({
+            id: i,
+            angle: Math.random() * Math.PI * 2,
+            velocity: 15 + Math.random() * 40,
+            size: 2 + Math.random() * 4,
+            delay: Math.random() * 0.1,
+            color: Math.random() > 0.5 ? '#06b6d4' : '#ec4899' // Cyan or Pink
+        }))
+    );
+
     useEffect(() => {
         if (!show) {
             setButtonVisible(false);
@@ -43,6 +55,35 @@ export function SuccessOverlay({ show, onClose }: SuccessOverlayProps) {
                         background: 'radial-gradient(ellipse 70% 60% at 50% 50%, #0a081e 0%, #000000 100%)',
                     }}
                 >
+                    {/* Particles Explosion */}
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, pointerEvents: 'none' }}>
+                        {particles.map(p => (
+                            <motion.div
+                                key={p.id}
+                                initial={{ x: 0, y: 0, opacity: 1, scale: 0 }}
+                                animate={{
+                                    x: Math.cos(p.angle) * p.velocity * 10,
+                                    y: Math.sin(p.angle) * p.velocity * 10,
+                                    opacity: 0,
+                                    scale: p.size / 2
+                                }}
+                                transition={{
+                                    duration: 1.2 + Math.random() * 0.8,
+                                    delay: p.delay,
+                                    ease: "easeOut"
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    width: p.size,
+                                    height: p.size,
+                                    borderRadius: '50%',
+                                    backgroundColor: p.color,
+                                    boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+                                }}
+                            />
+                        ))}
+                    </div>
+
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
