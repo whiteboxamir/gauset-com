@@ -123,6 +123,8 @@ export function PipelineSection() {
                     height: '20vh',
                     top: useTransform(spineSpring, [0, 1], ['0%', '100%']),
                     translateY: '-50%',
+                    opacity: useTransform(spineSpring, [0, 0.1, 0.9, 1], [0, 1, 1, 0]),
+                    scaleY: useTransform(spineSpring, [0, 0.1, 0.9, 1], [0.5, 1, 1, 0]),
                     background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.8), rgba(255,255,255,1), rgba(255,255,255,0.8), transparent)',
                     boxShadow: physicsConfig.spineGlowIntensity,
                 }}
