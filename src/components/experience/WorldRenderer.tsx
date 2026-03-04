@@ -56,8 +56,8 @@ const PERSISTENT_CAMERAS = [
 const WORLD_FOG_COLORS = [
     new THREE.Color('#050510'), // Void: deep blue-black
     new THREE.Color('#1a0505'), // Fracture: dark red
-    new THREE.Color('#0a0806'), // Production: warm dark
-    new THREE.Color('#0a0806'), // Persistent: same warm
+    new THREE.Color('#02040a'), // Production: deep cyber blue
+    new THREE.Color('#1a0033'), // Persistent: wildly alive deep space magenta/purple
     new THREE.Color('#1a2a35'), // Horizon: warm blue
 ];
 

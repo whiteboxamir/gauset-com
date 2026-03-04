@@ -92,17 +92,67 @@ export function HeroPage() {
                 </div>
             </div>
             <div style={{ height: '60dvh' }} />
-            <div className="h-[100dvh] flex flex-col items-center justify-center relative">
-                <div className="flex flex-col items-center justify-center">
-                    <div className="max-w-3xl px-6 text-center space-y-6">
-                        <p className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tighter text-white/80 leading-tight" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.9)' }}>Same world.<br />Different shots.</p>
-                        <p className="text-sm md:text-base text-neutral-500 tracking-tight leading-relaxed max-w-md mx-auto" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Production-level control over every angle.</p>
-                        <div className="flex gap-4 justify-center mt-8 flex-wrap">
-                            {['Wide', 'Close-up', 'OTS', 'Tracking'].map((shot) => (
-                                <div key={shot} className="px-4 py-2 rounded-full border text-xs tracking-[0.15em] uppercase font-medium" style={{ borderColor: 'rgba(100, 200, 220, 0.2)', backgroundColor: 'rgba(100, 200, 220, 0.05)', color: 'rgba(100, 200, 220, 0.7)', textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}>{shot}</div>
+            <div className="h-[100dvh] flex flex-col items-center justify-center relative pointer-events-none">
+                <div className="flex flex-col items-center justify-center pointer-events-auto w-full">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1.0, ease: "easeOut" }}
+                        className="w-full max-w-5xl px-6 text-center relative"
+                    >
+                        {/* Glowing ambient backdrop */}
+                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[300px] bg-gradient-to-r from-pink-500/10 via-cyan-500/10 to-purple-500/10 blur-[100px] -z-10 rounded-full pointer-events-none" />
+
+                        <h2 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.9]" style={{
+                            background: 'linear-gradient(135deg, #ffffff 0%, #a5f3fc 50%, #f9a8d4 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            filter: 'drop-shadow(0 0 40px rgba(0,240,255,0.3))'
+                        }}>
+                            Absolute<br />Freedom.
+                        </h2>
+
+                        <p className="mt-8 text-xl md:text-2xl text-neutral-300 font-light tracking-tight max-w-2xl mx-auto leading-relaxed" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9)' }}>
+                            The world is alive. Total control over every angle, every moment. No more static clips.
+                        </p>
+
+                        {/* Dynamic Shot Indicators */}
+                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mt-16 w-full max-w-4xl mx-auto">
+                            {['WIDE', 'CLOSE', 'OTS', 'TRACK'].map((shot, i) => (
+                                <motion.div
+                                    key={shot}
+                                    initial={{ opacity: 0, y: 40, rotateX: 45 }}
+                                    whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+                                    transition={{
+                                        duration: 0.8,
+                                        delay: i * 0.15,
+                                        type: 'spring',
+                                        bounce: 0.5
+                                    }}
+                                    viewport={{ margin: "-50px" }}
+                                    whileHover={{ scale: 1.15, zIndex: 20 }}
+                                    className="relative group cursor-pointer"
+                                    style={{ perspective: 1000 }}
+                                >
+                                    {/* Vibrant glow */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-pink-500 to-cyan-500 rounded-2xl blur-[16px] opacity-20 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                    {/* Glass block */}
+                                    <div className="relative px-8 py-5 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl flex flex-col items-center justify-center gap-2 overflow-hidden shadow-2xl transition-all duration-300 group-hover:border-white/30 group-hover:bg-black/80">
+                                        {/* Targeting reticle decor */}
+                                        <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
+                                        <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
+                                        <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-white/20 group-hover:border-pink-500 transition-colors duration-300" />
+                                        <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/20 group-hover:border-cyan-400 transition-colors duration-300" />
+
+                                        <span className="text-[10px] text-neutral-500 tracking-[0.4em] font-medium group-hover:text-white/80 transition-colors">CAM_0{i + 1}</span>
+                                        <span className="text-xl font-black tracking-widest text-white/90 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-pink-500 transition-all">{shot}</span>
+                                    </div>
+                                </motion.div>
                             ))}
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
             <div style={{ height: '30dvh' }} />
