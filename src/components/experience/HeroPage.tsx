@@ -107,10 +107,32 @@ export function HeroPage() {
             <div style={{ height: '30dvh' }} />
             <PipelineSection />
             <div style={{ height: '30dvh' }} />
-            <div className="h-[100dvh] flex items-center justify-center relative">
-                <div className="max-w-3xl px-6 text-center space-y-4">
-                    <p className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tighter text-white/60 leading-tight" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}>The world doesn&apos;t reset anymore.</p>
-                    <p className="text-sm md:text-base text-neutral-500 tracking-tight leading-relaxed max-w-md mx-auto" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Every shot lives in the same world. That changes everything.</p>
+            <div className="h-[100dvh] flex items-center justify-center relative pointer-events-none">
+                <div className="max-w-4xl px-6 text-center space-y-8 z-10 w-full">
+                    <motion.p
+                        initial={{ opacity: 0, filter: 'blur(40px)', letterSpacing: '0.4em', scale: 0.9 }}
+                        whileInView={{ opacity: 1, filter: 'blur(0px)', letterSpacing: '-0.04em', scale: 1 }}
+                        transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
+                        viewport={{ once: false, amount: 0.6 }}
+                        className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter text-white leading-tight mx-auto pointer-events-auto"
+                        style={{
+                            textShadow: '0 0 40px rgba(76, 209, 224, 0.5), 0 0 80px rgba(76, 209, 224, 0.2)',
+                            background: 'linear-gradient(to bottom, #FFFFFF, #a5f3fc)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                        }}>
+                        The world doesn&apos;t reset anymore.
+                    </motion.p>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1.0, delay: 0.8, ease: "easeOut" }}
+                        viewport={{ once: false, amount: 0.8 }}
+                        className="text-base md:text-lg lg:text-xl text-neutral-300 tracking-tight leading-relaxed max-w-xl mx-auto pointer-events-auto"
+                        style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>
+                        Every shot lives in the same world. That changes everything.
+                    </motion.p>
                 </div>
             </div>
             <div style={{ height: '20dvh' }} />

@@ -10,211 +10,195 @@ interface WorldProps {
     index: number;
 }
 
-const CLOUD_COUNT = 12;
+// Variables for fine-tuning the Sentient Swarm effect
+const SHADER_SPEED = 0.8;
+const SWARM_SPREAD = 150.0; // Initial chaotic particle spread area
+const FORMATION_RADIUS = 25.0; // Radius of the target cylindrical tunnel structure
+const BASE_COLOR = new THREE.Color('#4cd1e0'); // Neon cyan
+const CORE_COLOR = new THREE.Color('#ffffff'); // High heat white for center particles
 
-// Bright, expansive, cinematic future — golden hour, hopeful
+const vertexShader = `
+    precision highp float;
+    attribute vec3 targetPosition;
+    attribute vec3 randomOffset;
+    attribute float sizeOffset;
+    
+    uniform float uProgress;
+    uniform float uTime;
+    
+    varying float vDistance;
+    varying vec2 vUv;
+    varying float vFadeOpacity;
+    
+    void main() {
+        vUv = uv;
+        
+        // Chaotic motion based on time and local random offsets
+        vec3 chaoticPos = randomOffset + vec3(
+            sin(uTime * 1.2 + randomOffset.x) * 10.0,
+            cos(uTime * 1.5 + randomOffset.y) * 10.0,
+            sin(uTime * 0.8 + randomOffset.z) * 10.0
+        );
+        
+        // Implosion/snap feel between 10% and 70% progress
+        float smoothProg = smoothstep(0.1, 0.7, uProgress);
+        
+        // Mix position based on exact scroll progress
+        vec3 finalPos = mix(chaoticPos, targetPosition, smoothProg);
+        
+        // Distance from center of the tunnel to drop-off brightness
+        vDistance = length(finalPos.xy); 
+        
+        // SMOOTH ENTRANCE FIX: Scale grows from 0 to full size over the first 0% to 15% of the scene progress
+        float entranceScale = smoothstep(0.0, 0.15, uProgress);
+        
+        // Particles form massive blurry blobs in the void, shrink to fine points, but multiply by entrance scale
+        float baseScale = mix(1.0 + sizeOffset * 4.0, 1.0 + sizeOffset * 0.5, smoothProg);
+        float currentScale = baseScale * entranceScale;
+        
+        // Pass entrance opacity to fragment shader so alpha fades up cleanly instead of popping
+        vFadeOpacity = entranceScale;
+        
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position * currentScale, 1.0);
+        mvPosition.xyz += finalPos;
+        
+        gl_Position = projectionMatrix * mvPosition;
+    }
+`;
+
+const fragmentShader = `
+    precision highp float;
+    uniform vec3 uBaseColor;
+    uniform vec3 uCoreColor;
+    uniform float uOpacity; // Global visibility multiplier from Drei
+    
+    varying float vDistance;
+    varying vec2 vUv;
+    varying float vFadeOpacity; // Local fade-in from vertex shader progress
+    
+    void main() {
+        // Circular soft particle
+        vec2 centerUv = vUv - 0.5;
+        float distToCenter = length(centerUv);
+        if (distToCenter > 0.5) discard;
+        
+        // Soft glow edge
+        float glow = smoothstep(0.5, 0.1, distToCenter);
+        
+        // Color mixes to intense white near the core of the structure
+        vec3 finalColor = mix(uCoreColor, uBaseColor, clamp(vDistance / 15.0, 0.0, 1.0));
+        
+        // Combine global scroll visibility (uOpacity) with the local entrance fade (vFadeOpacity)
+        float finalAlpha = uOpacity * vFadeOpacity * glow * mix(0.4, 1.0, glow);
+        
+        gl_FragColor = vec4(finalColor, finalAlpha);
+        
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+    }
+`;
+
 export function HorizonWorld({ visibility, progress, index }: WorldProps) {
+    const meshRef = useRef<THREE.InstancedMesh>(null);
+    const materialRef = useRef<THREE.ShaderMaterial>(null);
     const groupRef = useRef<THREE.Group>(null);
-    const terrainRef = useRef<THREE.Mesh>(null);
-    const skyRef = useRef<THREE.Mesh>(null);
-    const cloudsRef = useRef<THREE.Group>(null);
-    const sunGlowRef = useRef<THREE.Mesh>(null);
+    const ambientLightRef = useRef<THREE.AmbientLight>(null);
 
-    // Cloud positions
-    const clouds = useMemo(() => {
-        const data = [];
-        for (let i = 0; i < CLOUD_COUNT; i++) {
-            data.push({
-                x: (Math.random() - 0.5) * 80,
-                y: 8 + Math.random() * 15,
-                z: -20 - Math.random() * 40,
-                scaleX: 5 + Math.random() * 12,
-                scaleY: 1 + Math.random() * 2,
-                speed: 0.01 + Math.random() * 0.03,
-                opacity: 0.1 + Math.random() * 0.15,
-            });
+    // Dynamic scaling for mobile to prevent WebGL crash and fix narrow aspect ratio
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const particleCount = isMobile ? 12000 : 30000;
+
+    // Generate massive particle dataset safely once on mount
+    const { targetPositions, randomOffsets, sizeOffsets } = useMemo(() => {
+        const targetPositions = new Float32Array(particleCount * 3);
+        const randomOffsets = new Float32Array(particleCount * 3);
+        const sizeOffsets = new Float32Array(particleCount);
+
+        for (let i = 0; i < particleCount; i++) {
+            // Target structure: A dense, infinite geometric tunnel/cathedral
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 5 + Math.pow(Math.random(), 2) * FORMATION_RADIUS; // Dense center
+            const depth = (Math.random() - 0.5) * 120; // Exceptionally long Z distribution
+
+            // Tweak aspect ratio for mobile: squish the horizontal distribution so it fits narrow screens
+            const widthScale = isMobile ? 0.5 : 1.0;
+
+            targetPositions[i * 3 + 0] = Math.cos(angle) * (radius * widthScale);
+            targetPositions[i * 3 + 1] = Math.sin(angle) * (radius * 0.4) - 2; // Squashed ellipse format
+            targetPositions[i * 3 + 2] = depth;
+
+            // Random chaotic offsets for the swarm phase, spread very wide in all directions
+            randomOffsets[i * 3 + 0] = (Math.random() - 0.5) * SWARM_SPREAD;
+            randomOffsets[i * 3 + 1] = (Math.random() - 0.5) * SWARM_SPREAD * 0.5; // Flatter height
+            randomOffsets[i * 3 + 2] = (Math.random() - 0.5) * SWARM_SPREAD;
+
+            sizeOffsets[i] = Math.random();
         }
-        return data;
-    }, []);
+
+        return { targetPositions, randomOffsets, sizeOffsets };
+    }, [isMobile, particleCount]);
+
+    const uniforms = useMemo(() => ({
+        uProgress: { value: 0 },
+        uTime: { value: 0 },
+        uOpacity: { value: 0 }, // Changed default to 0 to prevent initial 1 frame pop before useFrame runs
+        uBaseColor: { value: BASE_COLOR },
+        uCoreColor: { value: CORE_COLOR }
+    }), []);
 
     useFrame((state) => {
-        const vis = visibility[index];
+        const vis = Math.max(0, visibility[index]);
         if (!groupRef.current) return;
 
+        // Keep group visible even slightly below 0 so the fade out/in handles it naturally
         if (vis <= 0) {
             groupRef.current.visible = false;
             return;
         }
         groupRef.current.visible = true;
 
-        const time = state.clock.elapsedTime;
-        const prog = progress[index];
+        const prog = Math.max(0, progress[index]);
 
-        // Terrain fade
-        if (terrainRef.current) {
-            const mat = terrainRef.current.material as THREE.MeshStandardMaterial;
-            mat.opacity = vis * 0.95;
+        if (materialRef.current) {
+            materialRef.current.uniforms.uProgress.value = prog;
+            materialRef.current.uniforms.uTime.value = state.clock.elapsedTime * SHADER_SPEED;
+            materialRef.current.uniforms.uOpacity.value = vis * 0.8; // Blend in slightly transparent global opacity
         }
 
-        // Sky dome brightness
-        if (skyRef.current) {
-            const skyMat = skyRef.current.material as THREE.MeshBasicMaterial;
-            skyMat.opacity = vis * 0.6;
+        // Smoothly ramp ambient lighting up to 0.5 intensity based on scroll progress
+        if (ambientLightRef.current) {
+            ambientLightRef.current.intensity = 0.5 * vis;
         }
 
-        // Sun glow pulse
-        if (sunGlowRef.current) {
-            const sunMat = sunGlowRef.current.material as THREE.MeshBasicMaterial;
-            sunMat.opacity = vis * (0.3 + Math.sin(time * 0.2) * 0.05);
-        }
-
-        // Animate clouds — slow drift
-        if (cloudsRef.current) {
-            cloudsRef.current.children.forEach((child, i) => {
-                const cloud = clouds[i];
-                const mesh = child as THREE.Mesh;
-                const mat = mesh.material as THREE.MeshBasicMaterial;
-                mesh.position.x = cloud.x + time * cloud.speed * 10;
-                // Wrap clouds
-                if (mesh.position.x > 50) mesh.position.x -= 100;
-                mat.opacity = vis * cloud.opacity;
-            });
-        }
-
-        // Slow push-in
+        // As the swarm coalesces, the camera pushes rapidly through the core Z depth
         if (groupRef.current) {
-            groupRef.current.position.z = prog * -3;
+            groupRef.current.position.z = prog * 40; // High speed push-in
         }
     });
 
     return (
         <group ref={groupRef}>
-            {/* ═══ LIGHTING — Golden hour / sunrise ═══ */}
+            {/* Ambient deep space blue backing */}
+            <ambientLight ref={ambientLightRef} intensity={0} color="#0a1526" />
 
-            {/* Golden sun — low angle from horizon */}
-            <directionalLight
-                position={[-20, 5, -30]}
-                intensity={2.5}
-                color="#FFB347"
-            />
-
-            {/* Sky hemisphere — warm blue/amber */}
-            <hemisphereLight args={['#87CEEB', '#D4A04A', 0.5]} />
-
-            {/* Warm ambient — bright scene */}
-            <ambientLight intensity={0.15} color="#FFE4B5" />
-
-            {/* Sun point source */}
-            <pointLight
-                position={[-25, 5, -40]}
-                intensity={3}
-                color="#FFB347"
-                distance={60}
-            />
-
-            {/* ═══ TERRAIN — Expansive landscape ═══ */}
-            <mesh
-                ref={terrainRef}
-                position={[0, -5, -15]}
-                rotation={[-Math.PI / 2.3, 0, 0]}
-            >
-                <planeGeometry args={[100, 60, 40, 40]} />
-                <meshStandardMaterial
-                    color="#8B7355"
-                    roughness={0.85}
-                    metalness={0.05}
+            {/* Volumetric Swarm Core */}
+            <instancedMesh ref={meshRef} args={[undefined as any, undefined as any, particleCount]} frustumCulled={false}>
+                <planeGeometry args={[0.2, 0.2]}>
+                    <instancedBufferAttribute attach="attributes-targetPosition" args={[targetPositions, 3]} />
+                    <instancedBufferAttribute attach="attributes-randomOffset" args={[randomOffsets, 3]} />
+                    <instancedBufferAttribute attach="attributes-sizeOffset" args={[sizeOffsets, 1]} />
+                </planeGeometry>
+                <shaderMaterial
+                    ref={materialRef}
+                    vertexShader={vertexShader}
+                    fragmentShader={fragmentShader}
+                    uniforms={uniforms}
                     transparent
-                    opacity={0.95}
-                    side={THREE.DoubleSide}
-                />
-            </mesh>
-
-            {/* ═══ SKY DOME — Warm gradient ═══ */}
-            <mesh
-                ref={skyRef}
-                position={[0, 15, -30]}
-            >
-                <sphereGeometry args={[70, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-                <meshBasicMaterial
-                    color="#4A7FB5"
-                    transparent
-                    opacity={0.6}
-                    side={THREE.BackSide}
                     depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    precision="highp"
                 />
-            </mesh>
-
-            {/* Horizon warm gradient band */}
-            <mesh position={[0, 0, -50]}>
-                <planeGeometry args={[120, 20]} />
-                <meshBasicMaterial
-                    color="#FFB347"
-                    transparent
-                    opacity={0.12}
-                    depthWrite={false}
-                />
-            </mesh>
-
-            {/* ═══ SUN GLOW ═══ */}
-            <mesh ref={sunGlowRef} position={[-25, 5, -55]}>
-                <sphereGeometry args={[8, 16, 16]} />
-                <meshBasicMaterial
-                    color="#FFD700"
-                    transparent
-                    opacity={0.3}
-                    depthWrite={false}
-                />
-            </mesh>
-
-            {/* Sun core — bright point */}
-            <mesh position={[-25, 5, -55]}>
-                <sphereGeometry args={[2, 12, 12]} />
-                <meshBasicMaterial color="#FFF8DC" transparent opacity={0.8} depthWrite={false} />
-            </mesh>
-
-            {/* ═══ CLOUDS — Slow drifting ═══ */}
-            <group ref={cloudsRef}>
-                {clouds.map((cloud, i) => (
-                    <mesh
-                        key={i}
-                        position={[cloud.x, cloud.y, cloud.z]}
-                        scale={[cloud.scaleX, cloud.scaleY, 1]}
-                    >
-                        <planeGeometry args={[1, 1]} />
-                        <meshBasicMaterial
-                            color="#FFFFFF"
-                            transparent
-                            opacity={cloud.opacity}
-                            side={THREE.DoubleSide}
-                            depthWrite={false}
-                        />
-                    </mesh>
-                ))}
-            </group>
-
-            {/* ═══ SCALE INDICATORS — Distant structures ═══ */}
-            {/* Distant buildings/structures on horizon */}
-            {[[-30, -20], [-15, -25], [20, -30], [35, -22]].map(([x, z], i) => (
-                <mesh key={i} position={[x!, -3, z! - 15]}>
-                    <boxGeometry args={[1 + Math.random(), 3 + Math.random() * 5, 1 + Math.random()]} />
-                    <meshStandardMaterial
-                        color="#6B5B4A"
-                        roughness={0.9}
-                        transparent
-                        opacity={0.4}
-                    />
-                </mesh>
-            ))}
-
-            {/* Distant figure for scale — tiny silhouette on terrain */}
-            <mesh position={[8, -3.5, -12]}>
-                <capsuleGeometry args={[0.12, 0.8, 4, 8]} />
-                <meshStandardMaterial color="#3a3028" roughness={0.9} />
-            </mesh>
-            <mesh position={[8, -2.9, -12]}>
-                <sphereGeometry args={[0.1, 6, 6]} />
-                <meshStandardMaterial color="#3a3028" roughness={0.9} />
-            </mesh>
+            </instancedMesh>
         </group>
     );
 }

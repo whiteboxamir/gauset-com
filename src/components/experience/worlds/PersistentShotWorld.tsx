@@ -83,6 +83,27 @@ export function PersistentShotWorld({ visibility, progress, index }: WorldProps)
             const dMat = dustRef.current.material as THREE.MeshBasicMaterial;
             dMat.opacity = vis * 0.3;
         }
+
+        // SMOOTH SCENE CROSSFADE: dissolve room geometry and lighting
+        groupRef.current.traverse((child) => {
+            if ((child as any).isLight) {
+                const light = child as THREE.Light;
+                if (light.userData.baseIntensity === undefined) {
+                    light.userData.baseIntensity = light.intensity;
+                }
+                light.intensity = light.userData.baseIntensity * vis;
+            } else if ((child as any).isMesh && child !== dustRef.current) {
+                const mesh = child as THREE.Mesh;
+                const mat = mesh.material as THREE.Material;
+                if (mat) {
+                    if (mat.userData.baseOpacity === undefined) {
+                        mat.userData.baseOpacity = mat.opacity !== undefined ? mat.opacity : 1.0;
+                        mat.transparent = true;
+                    }
+                    mat.opacity = mat.userData.baseOpacity * vis;
+                }
+            }
+        });
     });
 
     return (
