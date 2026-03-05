@@ -10,7 +10,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
     title: 'GAUSET | Build worlds. Not clips.',
-    description: 'Gauset is a production layer for AI-generated worlds. You don\'t generate shots — you build worlds and direct inside them.',
+    description: 'Gauset is a production layer for AI-generated worlds. You don\'t generate shots. You build worlds and direct inside them.',
 }
 
 export default function RootLayout({

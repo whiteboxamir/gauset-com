@@ -74,7 +74,7 @@ export function HeroPage() {
                         </p>
                         <div className="space-y-4">
                             <p className="text-base md:text-lg text-neutral-400 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Nothing persists. Nothing matches. Characters change faces. Environments reset. Lighting never carries over.</p>
-                            <p className="text-base md:text-lg text-neutral-500 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>You can&apos;t build a film from isolated clips. Current tools are built for demos — not for production.</p>
+                            <p className="text-base md:text-lg text-neutral-500 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>You can&apos;t build a film from isolated clips. Current tools are built for demos, not for production.</p>
                         </div>
                     </div>
                 </div>
@@ -86,7 +86,7 @@ export function HeroPage() {
                         <p className="text-[10px] uppercase tracking-[0.35em] font-medium" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.9)', color: 'rgba(100, 200, 220, 0.5)' }}>Introducing GAUSET</p>
                         <p className="text-4xl sm:text-5xl md:text-6xl font-medium tracking-tighter leading-[1.05] text-white/90" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.9)' }}>Persistent worlds.</p>
                         <div className="space-y-4">
-                            <p className="text-base md:text-lg text-neutral-400 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Build a world once — it stays. Same lighting. Same environment. Full continuity across every shot.</p>
+                            <p className="text-base md:text-lg text-neutral-400 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Build a world once and it stays. Same lighting. Same environment. Full continuity across every shot.</p>
                             <p className="text-base md:text-lg text-neutral-500 tracking-tight leading-relaxed max-w-lg" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>Place cameras. Direct characters. Reshoot without rebuilding.</p>
                         </div>
                     </div>
