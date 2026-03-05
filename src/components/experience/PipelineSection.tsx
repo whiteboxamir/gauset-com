@@ -56,7 +56,7 @@ const STAGES = [
         label: 'SCREENPLAY',
         tagline: 'A screenplay enters the system.',
         meta: 'SC 01 · PARSE · INGEST',
-        detail: 'Structure, characters, locations, props — extracted and indexed.',
+        detail: 'Structure, characters, locations, and props are extracted and indexed.',
         accent: '#d4a04a', // gold
         statusLabel: 'INGESTING',
     },
@@ -83,7 +83,7 @@ const STAGES = [
         label: 'ORCHESTRATION',
         tagline: 'An agent maintains continuity across the film.',
         meta: 'CONTINUITY · RENDER · EXPORT',
-        detail: 'Every shot, every scene — connected and consistent.',
+        detail: 'Every shot and every scene is connected and consistent.',
         accent: '#d4a04a', // gold
         statusLabel: 'ORCHESTRATING',
     },
