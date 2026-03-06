@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Upload, ImageIcon, Box, Loader2 } from "lucide-react";
+import { Box, ImageIcon, Loader2, Upload } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_GAUSET_API_BASE_URL ?? "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 1200;
@@ -13,6 +13,7 @@ interface UploadResponse {
     image_id: string;
     filename: string;
     filepath: string;
+    url?: string;
 }
 
 interface GenerateResponse {
@@ -20,6 +21,7 @@ interface GenerateResponse {
     scene_id?: string;
     asset_id?: string;
     status: JobStatus;
+    urls?: Record<string, string>;
 }
 
 interface JobStatusResponse {
@@ -31,6 +33,7 @@ interface JobStatusResponse {
         scene_id?: string;
         asset_id?: string;
         files?: Record<string, string>;
+        urls?: Record<string, string>;
     } | null;
 }
 
@@ -42,6 +45,24 @@ interface LeftPanelProps {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const toAbsoluteUrl = (urlOrPath?: string): string => {
+    if (!urlOrPath) return "";
+    if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) return urlOrPath;
+    return `${API_BASE_URL}${urlOrPath.startsWith("/") ? "" : "/"}${urlOrPath}`;
+};
+
+const defaultEnvironmentUrls = (sceneId: string) => ({
+    splats: `${API_BASE_URL}/storage/scenes/${sceneId}/environment/splats.ply`,
+    cameras: `${API_BASE_URL}/storage/scenes/${sceneId}/environment/cameras.json`,
+    metadata: `${API_BASE_URL}/storage/scenes/${sceneId}/environment/metadata.json`,
+});
+
+const defaultAssetUrls = (assetId: string) => ({
+    mesh: `${API_BASE_URL}/storage/assets/${assetId}/mesh.glb`,
+    texture: `${API_BASE_URL}/storage/assets/${assetId}/texture.png`,
+    preview: `${API_BASE_URL}/storage/assets/${assetId}/preview.png`,
+});
+
 async function pollJob(jobId: string): Promise<JobStatusResponse> {
     const start = Date.now();
 
@@ -51,7 +72,7 @@ async function pollJob(jobId: string): Promise<JobStatusResponse> {
             throw new Error(`Job polling failed (${response.status})`);
         }
 
-        const payload = await response.json() as JobStatusResponse;
+        const payload = (await response.json()) as JobStatusResponse;
         if (payload.status === "completed" || payload.status === "failed") {
             return payload;
         }
@@ -110,7 +131,7 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
                 throw new Error(`Upload failed (${response.status})`);
             }
 
-            const payload = await response.json() as UploadResponse;
+            const payload = (await response.json()) as UploadResponse;
             setUploadInfo(payload);
             setStatusText(`Uploaded ${payload.filename}`);
         } catch (error) {
@@ -137,7 +158,7 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
                 throw new Error(`Environment generation failed (${response.status})`);
             }
 
-            const payload = await response.json() as GenerateResponse;
+            const payload = (await response.json()) as GenerateResponse;
             const jobId = payload.job_id ?? payload.scene_id;
             if (!jobId) {
                 throw new Error("Missing job id from environment generation response.");
@@ -149,9 +170,20 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
             }
 
             const sceneId = finalJob.result?.scene_id ?? payload.scene_id ?? jobId;
+            const fallbackUrls = defaultEnvironmentUrls(sceneId);
+            const urls = {
+                splats: toAbsoluteUrl(finalJob.result?.urls?.splats ?? payload.urls?.splats ?? fallbackUrls.splats),
+                cameras: toAbsoluteUrl(finalJob.result?.urls?.cameras ?? payload.urls?.cameras ?? fallbackUrls.cameras),
+                metadata: toAbsoluteUrl(finalJob.result?.urls?.metadata ?? payload.urls?.metadata ?? fallbackUrls.metadata),
+            };
+
             setSceneGraph((prev: any) => ({
                 ...prev,
-                environment: sceneId,
+                environment: {
+                    id: sceneId,
+                    urls,
+                    files: finalJob.result?.files ?? null,
+                },
             }));
             setActiveScene(sceneId);
             setStatusText(`Environment ready: ${sceneId}`);
@@ -178,7 +210,7 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
                 throw new Error(`Asset generation failed (${response.status})`);
             }
 
-            const payload = await response.json() as GenerateResponse;
+            const payload = (await response.json()) as GenerateResponse;
             const jobId = payload.job_id ?? payload.asset_id;
             if (!jobId) {
                 throw new Error("Missing job id from asset generation response.");
@@ -190,13 +222,23 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
             }
 
             const assetId = finalJob.result?.asset_id ?? payload.asset_id ?? jobId;
-            const files = finalJob.result?.files ?? {};
+            const fallbackUrls = defaultAssetUrls(assetId);
+            const urls = {
+                mesh: toAbsoluteUrl(finalJob.result?.urls?.mesh ?? payload.urls?.mesh ?? fallbackUrls.mesh),
+                texture: toAbsoluteUrl(finalJob.result?.urls?.texture ?? payload.urls?.texture ?? fallbackUrls.texture),
+                preview: toAbsoluteUrl(finalJob.result?.urls?.preview ?? payload.urls?.preview ?? fallbackUrls.preview),
+            };
+
             const newAsset = {
                 id: assetId,
                 name: assetId,
-                mesh: files.mesh ?? "",
-                texture: files.texture ?? "",
-                preview: files.preview ?? "",
+                mesh: urls.mesh,
+                texture: urls.texture,
+                preview: urls.preview,
+                instanceId: `inst_${Date.now()}`,
+                position: [0, 0, 0],
+                rotation: [0, 0, 0],
+                scale: [1, 1, 1],
             };
             setAssetsList((prev: any[]) => [...prev, newAsset]);
             setStatusText(`Asset ready: ${assetId}`);
@@ -224,12 +266,12 @@ export default function LeftPanel({ setActiveScene, setSceneGraph, setAssetsList
                 ) : (
                     <Upload className="mx-auto h-8 w-8 mb-3 text-neutral-500 group-hover:text-blue-400 transition-colors" />
                 )}
-                <p className="text-sm font-medium group-hover:text-blue-100">{isUploading ? 'Uploading...' : 'Upload Photo'}</p>
+                <p className="text-sm font-medium group-hover:text-blue-100">{isUploading ? "Uploading..." : "Upload Photo"}</p>
                 <p className="text-xs text-neutral-500 mt-1">PNG, JPG up to 10MB</p>
             </div>
 
             {statusText && <p className="text-xs text-emerald-400 mb-4">{statusText}</p>}
-            {errorText && <p className="text-xs text-rose-400 mb-4">{errorText}</p>}
+            {errorText && <p className="text-xs text-rose-400 mb-4 whitespace-pre-wrap">{errorText}</p>}
 
             {uploadInfo && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

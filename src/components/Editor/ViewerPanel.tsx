@@ -4,38 +4,49 @@ import React from "react";
 import { Maximize2, Move3d } from "lucide-react";
 import ThreeOverlay from "./ThreeOverlay";
 
-export default function ViewerPanel({ sceneGraph, setSceneGraph }: { sceneGraph: any, setSceneGraph: any }) {
-    // Real implementation architectural note:
-    // 1. A PlayCanvas WebGL context (Supersplat) for Gaussian Splat environment
-    // 2. A react-three-fiber WebGL context overlay for adding GLB assets
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
+export default function ViewerPanel({ sceneGraph, setSceneGraph }: { sceneGraph: any; setSceneGraph: any }) {
+    const handleDrop = (event: React.DragEvent) => {
+        event.preventDefault();
         try {
-            const assetData = e.dataTransfer.getData("asset");
-            if (assetData) {
-                const asset = JSON.parse(assetData);
-                // Drop in center for mock (real app uses raycaster intersection)
-                setSceneGraph((prev: any) => ({
-                    ...prev,
-                    assets: [...prev.assets, { ...asset, instanceId: `inst_${Date.now()}`, position: [0, 0, 0] }]
-                }));
-            }
-        } catch (e) { }
+            const assetData = event.dataTransfer.getData("asset");
+            if (!assetData) return;
+
+            const asset = JSON.parse(assetData);
+            setSceneGraph((prev: any) => ({
+                ...prev,
+                assets: [
+                    ...(prev.assets ?? []),
+                    {
+                        ...asset,
+                        instanceId: `inst_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                        position: [0, 0, 0],
+                        rotation: [0, 0, 0],
+                        scale: [1, 1, 1],
+                    },
+                ],
+            }));
+        } catch {
+            // Ignore invalid drag payloads.
+        }
     };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
+    const handleDragOver = (event: React.DragEvent) => {
+        event.preventDefault();
     };
+
+    const hasEnvironment = Boolean(sceneGraph?.environment);
 
     return (
         <div className="w-full h-full relative bg-[#050505] flex flex-col">
-            {/* Viewer Header HUD */}
-            <div className="absolute top-0 left-0 right-0 p-6 shrink-0 flex justify-between items-start pointer-events-none z-10">
+            <div className="absolute top-0 left-0 right-0 p-6 shrink-0 flex justify-between items-start pointer-events-none z-30">
                 <div className="bg-neutral-900/60 backdrop-blur-md rounded-xl px-4 py-2 border border-neutral-800/50 shadow-2xl flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${sceneGraph.environment ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-neutral-600'}`} />
+                    <div
+                        className={`w-2 h-2 rounded-full ${
+                            hasEnvironment ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-neutral-600"
+                        }`}
+                    />
                     <span className="text-sm font-medium text-neutral-200">
-                        {sceneGraph.environment ? 'System Ready' : 'Awaiting Data'}
+                        {hasEnvironment ? "Environment Loaded" : "Awaiting Environment"}
                     </span>
                 </div>
                 <div className="flex gap-2 pointer-events-auto">
@@ -48,38 +59,18 @@ export default function ViewerPanel({ sceneGraph, setSceneGraph }: { sceneGraph:
                 </div>
             </div>
 
-            {/* Render Area */}
             <div
-                className="flex-1 border border-neutral-800/50 m-6 rounded-2xl overflow-hidden relative shadow-2xl bg-neutral-900 flex items-center justify-center"
+                className="flex-1 border border-neutral-800/50 m-6 rounded-2xl overflow-hidden relative shadow-2xl bg-neutral-900"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
             >
+                <ThreeOverlay sceneGraph={sceneGraph} setSceneGraph={setSceneGraph} />
 
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-
-                {sceneGraph.environment ? (
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 to-emerald-900/10 flex flex-col items-center justify-center text-emerald-500/80 animate-in fade-in duration-500">
-                        <div className="w-64 h-64 border border-dashed border-emerald-500/30 rounded-full animate-[spin_20s_linear_infinite] relative flex items-center justify-center shadow-[inset_0_0_50px_rgba(16,185,129,0.1)]">
-                            <div className="w-48 h-48 border border-dashed border-emerald-500/20 rounded-full animate-[spin_15s_linear_infinite_reverse]" />
-                        </div>
-                        <p className="absolute text-sm font-medium tracking-widest uppercase shadow-black drop-shadow-md">PlayCanvas Splat Render</p>
-                    </div>
-                ) : (
-                    <p className="text-neutral-500 text-sm font-medium animate-pulse tracking-wide">3D Canvas Offline</p>
-                )}
-
-                {/* Three.js Overlay for Meshes */}
-                {sceneGraph.assets.length > 0 && (
-                    <ThreeOverlay sceneGraph={sceneGraph} setSceneGraph={setSceneGraph} />
-                )}
-
-                {/* Viewfinder Crosshair */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20 z-30">
                     <div className="w-8 h-[1px] bg-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
                     <div className="h-8 w-[1px] bg-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
                 </div>
             </div>
-
         </div>
     );
 }
