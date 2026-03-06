@@ -64,7 +64,7 @@ export default function RightPanel({ sceneGraph, setSceneGraph, assetsList, acti
 
                 {assetsList.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3 pb-8">
-                        {assetsList.map((asset, idx) => (
+                        {assetsList.map((asset: any, idx: number) => (
                             <div
                                 key={idx}
                                 draggable
