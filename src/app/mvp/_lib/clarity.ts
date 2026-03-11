@@ -23,6 +23,16 @@ export interface DemoWorldPreset {
 
 const DEMO_REFERENCE_IMAGE = "/images/hero/interior_daylight.png";
 
+function readDirectorBrief(sceneGraph: any) {
+    if (typeof sceneGraph?.director_brief === "string") {
+        return sceneGraph.director_brief.trim();
+    }
+    if (typeof sceneGraph?.sceneDirectionNote === "string") {
+        return sceneGraph.sceneDirectionNote.trim();
+    }
+    return "";
+}
+
 const getEnvironmentId = (sceneGraph: any) => {
     if (!sceneGraph?.environment) return null;
     if (typeof sceneGraph.environment === "string") return sceneGraph.environment;
@@ -68,7 +78,7 @@ export function createDemoWorldPreset(): DemoWorldPreset {
                 statusLabel: "Demo world loaded",
             },
             assets: demoAssets,
-            sceneDirectionNote:
+            director_brief:
                 "Wide shot from the doorway. Keep the counter, stools, and daylight feeling fixed while you change only framing and blocking.",
         },
         assetsList: demoAssets.map((asset) => ({
@@ -120,10 +130,10 @@ export function buildChangeSummary(
         persistent.push(formatDelta(assetDelta, "world asset"));
     }
 
-    const baselineDirection = typeof baselineSceneGraph?.sceneDirectionNote === "string" ? baselineSceneGraph.sceneDirectionNote.trim() : "";
-    const currentDirection = typeof currentSceneGraph?.sceneDirectionNote === "string" ? currentSceneGraph.sceneDirectionNote.trim() : "";
+    const baselineDirection = readDirectorBrief(baselineSceneGraph);
+    const currentDirection = readDirectorBrief(currentSceneGraph);
     if (baselineDirection !== currentDirection) {
-        sceneDirection.push(currentDirection ? "Scene direction note updated" : "Scene direction note cleared");
+        sceneDirection.push(currentDirection ? "Director brief updated" : "Director brief cleared");
     }
 
     if (persistent.length === 0 && sceneDirection.length === 0) {

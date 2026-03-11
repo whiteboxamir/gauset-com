@@ -1,5 +1,5 @@
 import MVPRouteClient from "../MVPRouteClient";
 
 export default function MVPPreviewPage() {
-    return <MVPRouteClient clarityMode />;
+    return <MVPRouteClient clarityMode routeVariant="preview" />;
 }

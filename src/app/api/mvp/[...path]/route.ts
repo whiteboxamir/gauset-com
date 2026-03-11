@@ -18,12 +18,49 @@ const HOP_BY_HOP_HEADERS = new Set([
     "content-length",
 ]);
 
-function resolveBackendBaseUrl() {
+function normalizeBaseUrl(value: string) {
+    return value.trim().replace(/\/$/, "");
+}
+
+function resolveInternalBackendBaseUrl(request: NextRequest) {
+    const explicitInternal = process.env.GAUSET_INTERNAL_BACKEND_URL ?? "";
+    if (explicitInternal.trim()) {
+        return normalizeBaseUrl(explicitInternal);
+    }
+
+    const forceExternalBackend = process.env.GAUSET_FORCE_EXTERNAL_BACKEND === "1";
+    if (forceExternalBackend) {
+        return "";
+    }
+
+    const isHostedRuntime = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+    if (!isHostedRuntime) {
+        return "";
+    }
+
+    return `${request.nextUrl.origin}/api/_mvp_backend`;
+}
+
+function resolveBackendBaseUrl(request: NextRequest) {
+    const internal = resolveInternalBackendBaseUrl(request);
+    if (internal) {
+        return internal;
+    }
+
     const explicit =
         process.env.GAUSET_BACKEND_URL ??
         process.env.NEXT_PUBLIC_GAUSET_API_BASE_URL ??
         (process.env.NODE_ENV !== "production" ? "http://127.0.0.1:8000" : "");
-    return explicit.trim().replace(/\/$/, "");
+    return normalizeBaseUrl(explicit);
+}
+
+function resolveBackendWorkerToken() {
+    const explicit =
+        process.env.GAUSET_BACKEND_WORKER_TOKEN ??
+        process.env.GAUSET_IMAGE_TO_SPLAT_BACKEND_TOKEN ??
+        process.env.GAUSET_WORKER_TOKEN ??
+        "";
+    return explicit.trim();
 }
 
 function buildUnavailableResponse(pathname: string) {
@@ -50,7 +87,7 @@ function buildUnavailableResponse(pathname: string) {
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
     const { path } = await context.params;
     const pathname = path.join("/");
-    const backendBaseUrl = resolveBackendBaseUrl();
+    const backendBaseUrl = resolveBackendBaseUrl(request);
     if (!backendBaseUrl) {
         return buildUnavailableResponse(pathname);
     }
@@ -67,6 +104,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         }
     });
     headers.set("accept-encoding", "identity");
+    const workerToken = resolveBackendWorkerToken();
+    if (workerToken) {
+        headers.set("authorization", `Bearer ${workerToken}`);
+        headers.set("x-gauset-worker-token", workerToken);
+    }
 
     let body: BodyInit | undefined;
     if (request.method !== "GET" && request.method !== "HEAD") {

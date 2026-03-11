@@ -1,18 +1,11 @@
+import type { SceneReviewRecord } from "@/lib/mvp-workspace";
+
 export interface ReviewPackage {
     sceneId: string | null;
     versionId: string | null;
     sceneGraph: any;
     assetsList: any[];
-    review?: {
-        metadata?: Record<string, string>;
-        approval?: {
-            state?: string;
-            updated_at?: string | null;
-            updated_by?: string | null;
-            note?: string;
-            history?: Array<Record<string, string | null>>;
-        };
-    };
+    review?: SceneReviewRecord;
     exportedAt: string;
     summary: {
         assetCount: number;

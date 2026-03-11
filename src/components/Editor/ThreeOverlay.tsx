@@ -1,10 +1,11 @@
 "use client";
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Grid, Html, OrbitControls, PivotControls } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { TAARenderPass } from "three/examples/jsm/postprocessing/TAARenderPass.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
@@ -12,6 +13,7 @@ import { MapPin } from "lucide-react";
 import EnvironmentSplat from "./EnvironmentSplat";
 import { toProxyUrl } from "@/lib/mvp-api";
 import { resolveEnvironmentRenderState } from "@/lib/mvp-product";
+import { isSingleImagePreviewMetadata, resolveViewerCapabilities, ViewerFallbackReason } from "@/lib/mvp-viewer";
 import {
     CameraPathFrame,
     CameraPose,
@@ -36,6 +38,17 @@ type SceneAsset = {
     rotation?: TransformTuple;
     scale?: TransformTuple;
 };
+
+type ParsedMeshAsset = {
+    format: "glb" | "gltf" | "obj";
+    scene: THREE.Object3D;
+};
+
+const EDITOR_CAMERA_NEAR = 0.01;
+const EDITOR_CAMERA_FAR = 500;
+const DEFAULT_EDITOR_VIEWER_BACKGROUND = "#0a0a0a";
+const PREVIEW_CAMERA_ORIENTATION_QUATERNION = new THREE.Quaternion(1, 0, 0, 0);
+const sceneBackgroundScratchColor = new THREE.Color();
 
 type FocusRequest = (CameraPose & { token: number }) | null;
 type TAARenderPassInternal = TAARenderPass & { accumulateIndex: number };
@@ -73,24 +86,60 @@ class CanvasErrorBoundary extends React.Component<
     }
 }
 
-function canCreateWebGLContext() {
-    if (typeof document === "undefined") return true;
-    const canvas = document.createElement("canvas");
-    const context =
-        canvas.getContext("webgl2", { powerPreference: "high-performance" }) ??
-        canvas.getContext("webgl", { powerPreference: "high-performance" }) ??
-        (canvas.getContext("experimental-webgl", { powerPreference: "high-performance" }) as
-            | WebGLRenderingContext
-            | WebGL2RenderingContext
-            | null);
+function isSingleImagePreviewEnvironment(metadata: any) {
+    return isSingleImagePreviewMetadata(metadata);
+}
 
-    if (!context) {
-        return false;
+function shouldApplyPreviewOrientation(metadata: any) {
+    if (typeof metadata?.rendering?.apply_preview_orientation === "boolean") {
+        return metadata.rendering.apply_preview_orientation;
     }
 
-    const loseContext = context.getExtension?.("WEBGL_lose_context");
-    loseContext?.loseContext();
-    return true;
+    return isSingleImagePreviewEnvironment(metadata);
+}
+
+function rotatePreviewCameraVector(tuple: Vector3Tuple) {
+    const rotated = new THREE.Vector3(...tuple).applyQuaternion(PREVIEW_CAMERA_ORIENTATION_QUATERNION);
+    return [rotated.x, rotated.y, rotated.z] as Vector3Tuple;
+}
+
+function resolveSingleImagePreviewCamera(metadata: any): (CameraPose & { up?: Vector3Tuple }) | null {
+    const sourceCamera = metadata?.source_camera;
+    if (!sourceCamera || typeof sourceCamera !== "object") {
+        return null;
+    }
+
+    const applyOrientation = shouldApplyPreviewOrientation(metadata);
+    const position = parseVector3Tuple(sourceCamera.position, [0, 0, 0]);
+    const target = parseVector3Tuple(sourceCamera.target, [0, 0, 1]);
+    const up = parseVector3Tuple(sourceCamera.up, [0, 1, 0]);
+    const orientedPosition = applyOrientation ? rotatePreviewCameraVector(position) : position;
+    const orientedTarget = applyOrientation ? rotatePreviewCameraVector(target) : target;
+    const orientedUp = applyOrientation ? rotatePreviewCameraVector(up) : up;
+    const explicitFov = Number(sourceCamera.fov_degrees ?? NaN);
+    const focalLengthPx = Number(sourceCamera.focal_length_px ?? NaN);
+    const resolutionPx = Array.isArray(sourceCamera.resolution_px) ? sourceCamera.resolution_px.map((value: unknown) => Number(value)) : [];
+    const imageHeightPx = Number.isFinite(resolutionPx[1]) ? Math.max(1, resolutionPx[1]) : NaN;
+    const derivedFov =
+        Number.isFinite(explicitFov) && explicitFov > 1
+            ? explicitFov
+            : Number.isFinite(focalLengthPx) && focalLengthPx > 1 && Number.isFinite(imageHeightPx)
+              ? (2 * Math.atan(imageHeightPx / (2 * focalLengthPx)) * 180) / Math.PI
+              : NaN;
+    const fov = Number.isFinite(derivedFov) && derivedFov > 1 ? derivedFov : 45;
+
+    return {
+        position: orientedPosition,
+        target: orientedTarget,
+        up: orientedUp,
+        fov,
+        lens_mm: Math.round(fovToLensMm(fov) * 10) / 10,
+    };
+}
+
+function applyEditorCameraClipping(camera: THREE.PerspectiveCamera) {
+    camera.near = EDITOR_CAMERA_NEAR;
+    camera.far = EDITOR_CAMERA_FAR;
 }
 
 function LoadingLabel({ text }: { text: string }) {
@@ -123,6 +172,21 @@ function ThreeOverlayFallback({ message, referenceImage }: ThreeOverlayFallbackP
                     </p>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function SingleImagePreviewSurface({ imageUrl }: { imageUrl: string }) {
+    return (
+        <div className="absolute inset-0 z-20 overflow-hidden rounded-[32px] bg-[linear-gradient(180deg,#040507_0%,#020304_100%)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_24%)]" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src={imageUrl}
+                alt=""
+                className="h-full w-full object-contain"
+                draggable={false}
+            />
         </div>
     );
 }
@@ -178,7 +242,77 @@ function AssetFallbackMesh({
     );
 }
 
-function GLBAsset({
+function detectMeshFormat(buffer: ArrayBuffer) {
+    const headerBytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 64));
+    if (headerBytes.length >= 4) {
+        const magic = String.fromCharCode(headerBytes[0] ?? 0, headerBytes[1] ?? 0, headerBytes[2] ?? 0, headerBytes[3] ?? 0);
+        if (magic === "glTF") {
+            return "glb" as const;
+        }
+    }
+
+    const headerText = new TextDecoder("utf-8").decode(headerBytes).replace(/^\uFEFF/, "").trimStart();
+    if (headerText.startsWith("{")) {
+        return "gltf" as const;
+    }
+
+    if (/^(?:#.*\n\s*)*(?:mtllib|o|g|v|vt|vn|usemtl|s|f)\b/m.test(headerText)) {
+        return "obj" as const;
+    }
+
+    throw new Error("Unsupported mesh payload format.");
+}
+
+function parseGltfAsset(loader: GLTFLoader, payload: ArrayBuffer | string, resourcePath: string) {
+    return new Promise<ParsedMeshAsset>((resolve, reject) => {
+        loader.parse(
+            payload,
+            resourcePath,
+            (gltf) => {
+                resolve({
+                    format: payload instanceof ArrayBuffer ? "glb" : "gltf",
+                    scene: gltf.scene || new THREE.Group(),
+                });
+            },
+            (error) => {
+                reject(error instanceof Error ? error : new Error("GLTF parse failed."));
+            },
+        );
+    });
+}
+
+async function loadMeshAsset(meshUrl: string, signal: AbortSignal) {
+    const resolvedUrl = toProxyUrl(meshUrl);
+    const response = await fetch(resolvedUrl, {
+        cache: "force-cache",
+        signal,
+    });
+    if (!response.ok) {
+        throw new Error(`Could not load ${resolvedUrl}: ${response.status} ${response.statusText}`.trim());
+    }
+
+    const payload = await response.arrayBuffer();
+    const format = detectMeshFormat(payload);
+    const resourcePath = new URL("./", new URL(resolvedUrl, window.location.href)).toString();
+
+    if (format === "obj") {
+        const text = new TextDecoder("utf-8").decode(payload);
+        return {
+            format,
+            scene: new OBJLoader().parse(text),
+        } satisfies ParsedMeshAsset;
+    }
+
+    const gltfLoader = new GLTFLoader();
+    if (format === "glb") {
+        return parseGltfAsset(gltfLoader, payload, resourcePath);
+    }
+
+    const text = new TextDecoder("utf-8").decode(payload);
+    return parseGltfAsset(gltfLoader, text, resourcePath);
+}
+
+function MeshAsset({
     asset,
     updateAssetTransform,
     readOnly,
@@ -188,8 +322,52 @@ function GLBAsset({
     readOnly: boolean;
 }) {
     const [active, setActive] = useState(false);
-    const gltf = useLoader(GLTFLoader, asset.mesh || "");
-    const scene = useMemo(() => clone(gltf.scene), [gltf.scene]);
+    const [parsedAsset, setParsedAsset] = useState<ParsedMeshAsset | null>(null);
+    const [loadError, setLoadError] = useState<Error | null>(null);
+
+    useEffect(() => {
+        if (!asset.mesh) {
+            setParsedAsset(null);
+            setLoadError(null);
+            return;
+        }
+
+        const abortController = new AbortController();
+        let ignore = false;
+        setParsedAsset(null);
+        setLoadError(null);
+
+        void loadMeshAsset(asset.mesh, abortController.signal)
+            .then((nextAsset) => {
+                if (ignore || abortController.signal.aborted) {
+                    return;
+                }
+                setParsedAsset(nextAsset);
+            })
+            .catch((error) => {
+                if (ignore || abortController.signal.aborted) {
+                    return;
+                }
+                const resolvedError = error instanceof Error ? error : new Error("Mesh load failed.");
+                console.error(`[ThreeOverlay] Mesh asset load failed for ${asset.mesh}`, resolvedError);
+                setLoadError(resolvedError);
+            });
+
+        return () => {
+            ignore = true;
+            abortController.abort();
+        };
+    }, [asset.mesh]);
+
+    const scene = useMemo(() => (parsedAsset ? clone(parsedAsset.scene) : null), [parsedAsset]);
+
+    if (loadError) {
+        return <AssetFallbackMesh asset={asset} updateAssetTransform={updateAssetTransform} readOnly={readOnly} />;
+    }
+
+    if (!scene) {
+        return <LoadingLabel text="Loading mesh..." />;
+    }
 
     return (
         <PivotControls
@@ -238,14 +416,10 @@ function SceneAssetNode({
     readOnly: boolean;
 }) {
     if (asset.mesh) {
-        return (
-            <Suspense fallback={<LoadingLabel text="Loading mesh..." />}>
-                <GLBAsset asset={asset} updateAssetTransform={updateAssetTransform} readOnly={readOnly} />
-            </Suspense>
-        );
+        return <MeshAsset asset={asset} updateAssetTransform={updateAssetTransform} readOnly={readOnly} />;
     }
 
-    return <AssetFallbackMesh asset={asset} updateAssetTransform={updateAssetTransform} readOnly={readOnly} />;
+    return null;
 }
 
 function pinColors(type: SpatialPinType, isSelected: boolean) {
@@ -374,6 +548,7 @@ function CameraRig({
     const startTimeRef = useRef<number>(0);
 
     useEffect(() => {
+        applyEditorCameraClipping(perspectiveCamera);
         perspectiveCamera.fov = viewerFov;
         perspectiveCamera.updateProjectionMatrix();
     }, [perspectiveCamera, viewerFov]);
@@ -382,6 +557,12 @@ function CameraRig({
         if (!focusRequest || focusRequest.token === lastFocusTokenRef.current) return;
         lastFocusTokenRef.current = focusRequest.token;
         perspectiveCamera.position.set(...focusRequest.position);
+        if (focusRequest.up) {
+            perspectiveCamera.up.set(...focusRequest.up);
+        } else {
+            perspectiveCamera.up.set(0, 1, 0);
+        }
+        applyEditorCameraClipping(perspectiveCamera);
         perspectiveCamera.fov = focusRequest.fov;
         perspectiveCamera.updateProjectionMatrix();
         if (controlsRef.current?.target) {
@@ -517,10 +698,47 @@ function TemporalAntialiasingComposer() {
     return null;
 }
 
+function SceneBackgroundLock({ backgroundColor }: { backgroundColor: string }) {
+    const { gl, scene } = useThree();
+    const background = useMemo(() => new THREE.Color(backgroundColor), [backgroundColor]);
+
+    useEffect(() => {
+        const previousBackground = scene.background;
+        const previousClearColor = gl.getClearColor(new THREE.Color()).clone();
+        const previousClearAlpha = gl.getClearAlpha();
+
+        scene.background = background;
+        gl.setClearColor(background, 1);
+        gl.domElement.style.backgroundColor = backgroundColor;
+
+        return () => {
+            scene.background = previousBackground;
+            gl.setClearColor(previousClearColor, previousClearAlpha);
+        };
+    }, [background, backgroundColor, gl, scene]);
+
+    useFrame(() => {
+        if (!(scene.background instanceof THREE.Color) || !scene.background.equals(background)) {
+            scene.background = background;
+        }
+
+        if (!gl.getClearColor(sceneBackgroundScratchColor).equals(background) || gl.getClearAlpha() !== 1) {
+            gl.setClearColor(background, 1);
+        }
+
+        if (gl.domElement.style.backgroundColor !== backgroundColor) {
+            gl.domElement.style.backgroundColor = backgroundColor;
+        }
+    }, -1);
+
+    return null;
+}
+
 export default function ThreeOverlay({
     sceneGraph,
     setSceneGraph,
     readOnly = false,
+    backgroundColor = DEFAULT_EDITOR_VIEWER_BACKGROUND,
     selectedPinId,
     onSelectPin,
     focusRequest,
@@ -535,6 +753,7 @@ export default function ThreeOverlay({
     sceneGraph: any;
     setSceneGraph: React.Dispatch<React.SetStateAction<any>>;
     readOnly?: boolean;
+    backgroundColor?: string;
     selectedPinId?: string | null;
     onSelectPin?: (pinId: string | null) => void;
     focusRequest?: FocusRequest;
@@ -548,29 +767,71 @@ export default function ThreeOverlay({
 }) {
     const normalizedSceneGraph = useMemo(() => normalizeWorkspaceSceneGraph(sceneGraph), [sceneGraph]);
     const controlsRef = useRef<any>(null);
+    const canvasEventCleanupRef = useRef<(() => void) | null>(null);
+    const previewAutofocusKeyRef = useRef("");
     const [renderMode, setRenderMode] = useState<"webgl" | "fallback">("webgl");
     const [renderError, setRenderError] = useState("");
     const [isViewerReady, setIsViewerReady] = useState(false);
+    const [previewAutofocusRequest, setPreviewAutofocusRequest] = useState<FocusRequest>(null);
     const environmentRenderState = useMemo(
         () => resolveEnvironmentRenderState(normalizedSceneGraph.environment),
         [normalizedSceneGraph.environment],
     );
     const environmentViewerUrl = toProxyUrl(environmentRenderState.viewerUrl);
     const environmentSplatUrl = toProxyUrl(environmentRenderState.splatUrl);
+    const previewProjectionImage = toProxyUrl(environmentRenderState.previewProjectionImage);
     const environmentMetadata =
         typeof normalizedSceneGraph.environment === "object" ? normalizedSceneGraph.environment?.metadata ?? null : null;
     const referenceImage = environmentRenderState.referenceImage;
+    const isSingleImagePreview = isSingleImagePreviewEnvironment(environmentMetadata);
+    const viewerDecision = useMemo(
+        () =>
+            resolveViewerCapabilities({
+                plyUrl: environmentSplatUrl,
+                viewerUrl: environmentViewerUrl,
+                metadata: environmentMetadata,
+            }),
+        [environmentMetadata, environmentSplatUrl, environmentViewerUrl],
+    );
+    const hasRenderableEnvironment = Boolean(environmentSplatUrl || environmentViewerUrl);
+    const shouldUsePreviewProjectionFallback = renderMode !== "fallback" && !hasRenderableEnvironment && Boolean(previewProjectionImage);
+    const singleImagePreviewCamera = useMemo(() => resolveSingleImagePreviewCamera(environmentMetadata), [environmentMetadata]);
+    const effectiveFocusRequest =
+        previewAutofocusRequest && (!focusRequest || previewAutofocusRequest.token >= focusRequest.token)
+            ? previewAutofocusRequest
+            : focusRequest ?? null;
 
-    useEffect(() => {
-        if (canCreateWebGLContext()) return;
+    const activateViewerFallback = React.useCallback((message: string) => {
         setIsViewerReady(false);
         setRenderMode("fallback");
-        setRenderError("WebGL could not be initialized in this environment.");
+        setRenderError(message);
+    }, []);
+
+    useEffect(() => {
+        if (viewerDecision.renderMode !== "fallback") {
+            setRenderMode("webgl");
+            setRenderError("");
+            return;
+        }
+
+        activateViewerFallback(viewerDecision.fallbackMessage);
+    }, [activateViewerFallback, viewerDecision.fallbackMessage, viewerDecision.renderMode]);
+
+    useEffect(() => {
+        return () => {
+            canvasEventCleanupRef.current?.();
+            canvasEventCleanupRef.current = null;
+        };
     }, []);
 
     useEffect(() => {
         onViewerReadyChange?.(isViewerReady && renderMode === "webgl");
     }, [isViewerReady, onViewerReadyChange, renderMode]);
+
+    useEffect(() => {
+        previewAutofocusKeyRef.current = "";
+        setPreviewAutofocusRequest(null);
+    }, [environmentSplatUrl, environmentViewerUrl, isSingleImagePreview]);
 
     const updateAssetTransform = (instanceId: string, patch: Partial<SceneAsset>) => {
         setSceneGraph((prev: any) => {
@@ -593,11 +854,74 @@ export default function ThreeOverlay({
         onSelectPin?.(pin.id);
     };
 
-    const handleCanvasError = (error: Error) => {
-        setIsViewerReady(false);
-        setRenderMode("fallback");
-        setRenderError(error.message || "WebGL viewer failed to initialize.");
+    const handleCanvasError = React.useCallback(
+        (error: Error) => {
+            activateViewerFallback(error.message || "WebGL viewer failed to initialize.");
+        },
+        [activateViewerFallback],
+    );
+
+    const handleEnvironmentFatalError = React.useCallback(
+        (message: string, reason: ViewerFallbackReason) => {
+            const normalizedMessage = message.trim().toLowerCase();
+            if (
+                reason === "texture_size_exceeded" ||
+                reason === "context_lost" ||
+                normalizedMessage.includes("webgl2") ||
+                normalizedMessage.includes("ext_color_buffer_float")
+            ) {
+                activateViewerFallback(message);
+            }
+        },
+        [activateViewerFallback],
+    );
+
+    const handlePreviewBounds = (bounds: { center: [number, number, number]; radius: number; forward?: [number, number, number] }) => {
+        if (!isSingleImagePreview) {
+            return;
+        }
+
+        if (singleImagePreviewCamera) {
+            const key = `${environmentSplatUrl}|source-camera|${singleImagePreviewCamera.position.join(",")}|${singleImagePreviewCamera.target.join(",")}|${singleImagePreviewCamera.fov.toFixed(3)}`;
+            if (previewAutofocusKeyRef.current === key) {
+                return;
+            }
+            previewAutofocusKeyRef.current = key;
+            setPreviewAutofocusRequest({
+                ...singleImagePreviewCamera,
+                token: Date.now(),
+            });
+            return;
+        }
+
+        const key = `${environmentSplatUrl}|${bounds.center.join(",")}|${bounds.radius.toFixed(4)}|${(bounds.forward ?? [0, 0, 1]).join(",")}|${normalizedSceneGraph.viewer.fov.toFixed(2)}`;
+        if (previewAutofocusKeyRef.current === key) {
+            return;
+        }
+        previewAutofocusKeyRef.current = key;
+
+        const radius = Math.max(0.1, bounds.radius);
+        const verticalFovRadians = THREE.MathUtils.degToRad(normalizedSceneGraph.viewer.fov);
+        const distance = Math.max(radius * 1.75, (radius / Math.tan(verticalFovRadians * 0.5)) * 0.96);
+        const forward = new THREE.Vector3(...(bounds.forward ?? [0, 0, 1]));
+        if (forward.lengthSq() <= 1e-6) {
+            forward.set(0, 0, 1);
+        }
+        forward.normalize();
+        const position = new THREE.Vector3(...bounds.center).addScaledVector(forward, distance);
+
+        setPreviewAutofocusRequest({
+            position: [position.x, position.y, position.z],
+            target: bounds.center,
+            fov: normalizedSceneGraph.viewer.fov,
+            lens_mm: Math.round(fovToLensMm(normalizedSceneGraph.viewer.fov) * 10) / 10,
+            token: Date.now(),
+        });
     };
+
+    if (shouldUsePreviewProjectionFallback && previewProjectionImage) {
+        return <SingleImagePreviewSurface imageUrl={previewProjectionImage} />;
+    }
 
     if (renderMode === "fallback") {
         return <ThreeOverlayFallback message={renderError} referenceImage={referenceImage} />;
@@ -607,8 +931,9 @@ export default function ThreeOverlay({
         <div className="absolute inset-0 pointer-events-auto z-20">
             <CanvasErrorBoundary onError={handleCanvasError}>
                 <Canvas
-                    camera={{ position: [5, 4, 6], fov: normalizedSceneGraph.viewer.fov }}
-                    dpr={[1, 3]}
+                    camera={{ position: [5, 4, 6], fov: normalizedSceneGraph.viewer.fov, near: EDITOR_CAMERA_NEAR, far: EDITOR_CAMERA_FAR }}
+                    dpr={isSingleImagePreview ? [1, 2] : [1, 3]}
+                    style={{ background: backgroundColor, touchAction: "none" }}
                     gl={{
                         powerPreference: "high-performance",
                         antialias: true,
@@ -616,8 +941,25 @@ export default function ThreeOverlay({
                         depth: true,
                         stencil: false,
                     }}
-                    shadows
+                    shadows={!isSingleImagePreview}
                     onCreated={({ gl }) => {
+                        canvasEventCleanupRef.current?.();
+                        const handleContextLost = (event: Event) => {
+                            event.preventDefault();
+                            activateViewerFallback("WebGL context was lost while rendering the viewer.");
+                        };
+                        const handleContextRestored = () => {
+                            setRenderError("");
+                        };
+                        gl.domElement.addEventListener("webglcontextlost", handleContextLost, false);
+                        gl.domElement.addEventListener("webglcontextrestored", handleContextRestored, false);
+                        canvasEventCleanupRef.current = () => {
+                            gl.domElement.removeEventListener("webglcontextlost", handleContextLost, false);
+                            gl.domElement.removeEventListener("webglcontextrestored", handleContextRestored, false);
+                        };
+
+                        gl.setClearColor(backgroundColor, 1);
+                        gl.domElement.style.backgroundColor = backgroundColor;
                         gl.outputColorSpace = THREE.SRGBColorSpace;
                         gl.toneMapping = THREE.ACESFilmicToneMapping;
                         gl.toneMappingExposure = 1;
@@ -626,36 +968,40 @@ export default function ThreeOverlay({
                     }}
                     onPointerMissed={() => onSelectPin?.(null)}
                 >
-                    <color attach="background" args={["#0a0a0a"]} />
-                    <TemporalAntialiasingComposer />
-                    <ambientLight intensity={0.65} />
-                    <directionalLight position={[8, 12, 6]} intensity={1.2} castShadow />
+                    <SceneBackgroundLock backgroundColor={backgroundColor} />
+                    {!isSingleImagePreview ? <TemporalAntialiasingComposer /> : null}
+                    <ambientLight intensity={isSingleImagePreview ? 0.35 : 0.65} />
+                    {!isSingleImagePreview ? <directionalLight position={[8, 12, 6]} intensity={1.2} castShadow /> : null}
 
                     <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.08} />
-                    <Environment preset="city" />
+                    {!isSingleImagePreview ? <Environment preset="city" background={false} /> : null}
                     <CameraRig
                         viewerFov={normalizedSceneGraph.viewer.fov}
                         controlsRef={controlsRef}
-                        focusRequest={focusRequest ?? null}
+                        focusRequest={effectiveFocusRequest}
                         captureRequestKey={captureRequestKey}
                         onCapturePose={onCapturePose}
                         isRecordingPath={isRecordingPath}
                         onPathRecorded={onPathRecorded}
                     />
 
-                    <Grid
-                        args={[30, 30]}
-                        cellSize={1}
-                        cellThickness={0.8}
-                        cellColor="#3f3f46"
-                        sectionSize={5}
-                        sectionThickness={1.2}
-                        sectionColor="#71717a"
-                        fadeDistance={45}
-                        fadeStrength={1}
-                    />
+                    {!isSingleImagePreview ? (
+                        <>
+                            <Grid
+                                args={[30, 30]}
+                                cellSize={1}
+                                cellThickness={0.8}
+                                cellColor="#3f3f46"
+                                sectionSize={5}
+                                sectionThickness={1.2}
+                                sectionColor="#71717a"
+                                fadeDistance={45}
+                                fadeStrength={1}
+                            />
 
-                    <ContactShadows position={[0, -0.5, 0]} opacity={0.35} scale={30} blur={2.2} far={8} />
+                            <ContactShadows position={[0, -0.5, 0]} opacity={0.35} scale={30} blur={2.2} far={8} />
+                        </>
+                    ) : null}
 
                     {environmentSplatUrl || environmentViewerUrl ? (
                         <Suspense fallback={<LoadingLabel text="Loading environment splat..." />}>
@@ -663,6 +1009,8 @@ export default function ThreeOverlay({
                                 plyUrl={environmentSplatUrl}
                                 viewerUrl={environmentViewerUrl}
                                 metadata={environmentMetadata}
+                                onPreviewBounds={handlePreviewBounds}
+                                onFatalError={handleEnvironmentFatalError}
                             />
                         </Suspense>
                     ) : null}

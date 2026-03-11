@@ -226,6 +226,8 @@ export interface EnvironmentRenderingMetadata {
     viewer_renderer?: string;
     source_format?: string;
     viewer_source?: string;
+    apply_preview_orientation?: boolean;
+    preview_density_multiplier?: number;
 }
 
 export interface EnvironmentDeliveryAxis {
@@ -357,10 +359,40 @@ export interface EnvironmentReleaseGates {
     failed?: string[];
 }
 
+export interface EnvironmentPreviewEnhancement {
+    source_renderer?: string;
+    point_count_before?: number;
+    point_count_after?: number;
+    density?: {
+        multiplier?: number;
+        source_count?: number;
+        output_count?: number;
+        jitter_radius?: number;
+        scale_shrink?: number;
+    };
+    exposure?: {
+        profile?: string;
+        dark_scene?: boolean;
+        gain?: number;
+        gamma?: number;
+        saturation_boost?: number;
+        target_mean?: number;
+        target_p75?: number;
+        max_gain?: number;
+        min_gamma?: number;
+        mean_luma_before?: number;
+        mean_luma_after?: number;
+        p75_luma_before?: number;
+        p75_luma_after?: number;
+    };
+}
+
 export interface GeneratedEnvironmentMetadata {
     lane?: "preview" | "reconstruction";
     truth_label?: string;
     reference_image?: string;
+    input_image?: string;
+    preview_projection?: string;
     quality_tier?: string;
     faithfulness?: string;
     lane_truth?: string;
@@ -384,10 +416,42 @@ export interface GeneratedEnvironmentMetadata {
     release_gates?: EnvironmentReleaseGates;
     quality?: EnvironmentQualityMetrics;
     delivery?: EnvironmentDeliveryProfile;
+    preview_enhancement?: EnvironmentPreviewEnhancement;
+    source_camera?: {
+        position?: [number, number, number];
+        target?: [number, number, number];
+        up?: [number, number, number];
+        focal_length_px?: number;
+        resolution_px?: [number, number];
+        fov_degrees?: number;
+    };
 }
 
 function normalizeEnvironmentString(value: unknown) {
     return typeof value === "string" ? value.trim() : "";
+}
+
+function deriveStorageUrlFromAbsolutePath(value: unknown) {
+    const normalized = normalizeEnvironmentString(value);
+    if (!normalized) {
+        return "";
+    }
+
+    if (normalized.startsWith("/storage/")) {
+        return normalized;
+    }
+
+    const uploadsIndex = normalized.lastIndexOf("/uploads/");
+    if (uploadsIndex >= 0) {
+        return `/storage${normalized.slice(uploadsIndex)}`;
+    }
+
+    const scenesIndex = normalized.lastIndexOf("/scenes/");
+    if (scenesIndex >= 0) {
+        return `/storage${normalized.slice(scenesIndex)}`;
+    }
+
+    return "";
 }
 
 function containsReferenceOnlyFlag(value: unknown) {
@@ -404,9 +468,23 @@ export function resolveEnvironmentRenderState(environment: any) {
 
     const viewerUrl = normalizeEnvironmentString(urls?.viewer) || normalizeEnvironmentString(rendering?.viewer_source);
     const splatUrl = normalizeEnvironmentString(urls?.splats);
+    const truthLabel = normalizeEnvironmentString(metadata?.truth_label).toLowerCase();
+    const qualityTier = normalizeEnvironmentString(metadata?.quality_tier).toLowerCase();
+    const sourceFormat = normalizeEnvironmentString(rendering?.source_format).toLowerCase();
+    const isSingleImagePreview =
+        normalizeEnvironmentString(metadata?.lane).toLowerCase() === "preview" &&
+        (qualityTier.includes("single_image_preview") || sourceFormat.includes("dense_preview") || truthLabel === "instant preview");
+    const sourceInputImage =
+        deriveStorageUrlFromAbsolutePath(metadata?.input_image) || normalizeEnvironmentString(metadata?.input_image);
+    const previewProjectionImage =
+        normalizeEnvironmentString(urls?.preview_projection) ||
+        normalizeEnvironmentString(metadata?.preview_projection) ||
+        (isSingleImagePreview ? sourceInputImage : "");
     const referenceImage =
         normalizeEnvironmentString(environment?.demo_reference_image) ||
+        previewProjectionImage ||
         normalizeEnvironmentString(metadata?.reference_image) ||
+        sourceInputImage ||
         normalizeEnvironmentString(environment?.previewImage) ||
         "";
     const hasRenderableOutput = Boolean(splatUrl || viewerUrl);
@@ -428,6 +506,7 @@ export function resolveEnvironmentRenderState(environment: any) {
     return {
         viewerUrl,
         splatUrl,
+        previewProjectionImage: previewProjectionImage || null,
         referenceImage: referenceImage || null,
         hasRenderableOutput,
         isReferenceOnlyDemo,
@@ -556,6 +635,12 @@ export function describeEnvironment(environment: any) {
         typeof environment?.metadata?.delivery?.label === "string" ? environment.metadata.delivery.label : null;
     const colorEncoding =
         typeof environment?.metadata?.rendering?.color_encoding === "string" ? environment.metadata.rendering.color_encoding : null;
+    const previewIsLrm =
+        lane === "preview" &&
+        (typeof environment?.metadata?.training_backend === "string"
+            ? environment.metadata.training_backend === "ml_sharp_gpu_worker"
+            : typeof environment?.metadata?.rendering?.source_format === "string" &&
+              environment.metadata.rendering.source_format === "sharp_ply_dense_preview");
     const legacyStatusLabel = normalizeEnvironmentString(environment?.statusLabel);
     const legacyLabel = normalizeEnvironmentString(environment?.label);
     const label =
@@ -568,7 +653,9 @@ export function describeEnvironment(environment: any) {
                 ? "Benchmarked Reconstruction Loaded"
                 : "Hybrid Reconstruction Loaded"
             : lane === "preview"
-              ? "Preview Loaded"
+              ? previewIsLrm
+                  ? "Image-to-Splat Preview Loaded"
+                  : "Preview Loaded"
               : environment
                 ? "Environment Loaded"
                 : "Awaiting Environment";
@@ -592,7 +679,9 @@ export function describeEnvironment(environment: any) {
                 ? "Benchmarked multi-view reconstruction"
                 : "Hybrid local reconstruction"
             : lane === "preview"
-              ? "Single-photo synthesized preview"
+              ? previewIsLrm
+                  ? "Single-photo AI splat preview"
+                  : "Single-photo synthesized preview"
               : "No environment yet";
     const detailParts: string[] = [];
     if (laneTruth) {

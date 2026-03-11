@@ -5,6 +5,7 @@ import { MessageSquareText, Share2 } from "lucide-react";
 import ViewerPanel from "@/components/Editor/ViewerPanel";
 import { extractApiError, MVP_API_BASE_URL } from "@/lib/mvp-api";
 import { decodeReviewPackage, ReviewPackage } from "@/lib/mvp-review";
+import { SceneReviewRecord } from "@/lib/mvp-workspace";
 import { useSearchParams } from "next/navigation";
 
 interface ReviewComment {
@@ -12,16 +13,6 @@ interface ReviewComment {
     author: string;
     body: string;
     created_at: string;
-}
-
-interface SceneReview {
-    metadata?: Record<string, string>;
-    approval?: {
-        state?: string;
-        updated_at?: string | null;
-        updated_by?: string | null;
-        note?: string;
-    };
 }
 
 const formatTimestamp = (value?: string | null) => {
@@ -41,7 +32,7 @@ export default function ReviewExperience() {
     const [reviewPackage, setReviewPackage] = useState<ReviewPackage | null>(null);
     const [comments, setComments] = useState<ReviewComment[]>([]);
     const [statusMessage, setStatusMessage] = useState("Loading review scene...");
-    const [reviewData, setReviewData] = useState<SceneReview | null>(null);
+    const [reviewData, setReviewData] = useState<SceneReviewRecord | null>(null);
 
     const sceneId = searchParams.get("scene");
     const versionId = searchParams.get("version");
@@ -96,7 +87,7 @@ export default function ReviewExperience() {
 
                 const reviewResponse = await fetch(`${MVP_API_BASE_URL}/scene/${sceneId}/review`, { cache: "no-store" });
                 if (reviewResponse.ok) {
-                    const reviewPayload = (await reviewResponse.json()) as SceneReview;
+                    const reviewPayload = (await reviewResponse.json()) as SceneReviewRecord;
                     if (!cancelled) {
                         setReviewData(reviewPayload);
                     }
